@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>thread-sight</title>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+ 
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+ 
+    :root {
+      --teal: #00b89c;
+      --teal-dark: #008a73;
+      --black: #0d0d0d;
+      --white: #fafaf8;
+      --off-white: #f2f0ea;
+      --muted: #888880;
+      --border: #d8d6ce;
+      --rising: #00b89c;
+      --fading: #c0392b;
+      --stable: #888880;
+    }
+ 
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--white);
+      color: var(--black);
+      min-height: 100vh;
+    }
+ 
+    /* ── NAVBAR ── */
+    nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2.5rem;
+      border-bottom: 1.5px solid var(--black);
+    }
+ 
+    .nav-left {
+      display: flex;
+      flex-direction: column;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      gap: 2px;
+    }
+ 
+    .nav-left .report-btn {
+      display: inline-block;
+      background: var(--teal);
+      color: white;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      margin-top: 4px;
+      letter-spacing: 0.03em;
+      text-transform: lowercase;
+    }
+ 
+    .nav-logo {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-style: italic;
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      color: var(--black);
+      text-decoration: none;
+    }
+ 
+    .nav-right {
+      display: flex;
+      gap: 0.75rem;
+    }
+ 
+    .nav-btn {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 6px 14px;
+      background: var(--black);
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      text-transform: lowercase;
+      transition: background 0.2s;
+    }
+ 
+    .nav-btn:hover { background: #333; }
+ 
+    /* ── HERO ── */
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 3rem;
+      padding: 3rem 2.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      align-items: start;
+    }
+ 
+    .hero-eyebrow {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+ 
+    .hero-title {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.8rem, 5vw, 4.5rem);
+      font-style: italic;
+      font-weight: 400;
+      line-height: 1.05;
+      letter-spacing: -0.02em;
+      margin-bottom: 1.5rem;
+      color: var(--black);
+    }
+ 
+    .hero-desc {
+      font-size: 0.9rem;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 520px;
+      margin-bottom: 1rem;
+    }
+ 
+    .phase-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-bottom: 2rem;
+    }
+ 
+    .phase-list li {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--black);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+ 
+    .phase-list li::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--teal);
+      flex-shrink: 0;
+    }
+ 
+    /* ── SEARCH BOX ── */
+    .search-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+ 
+    .search-input {
+      width: 100%;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.78rem;
+      padding: 14px 18px;
+      border: 1.5px solid var(--black);
+      border-radius: 6px;
+      background: white;
+      color: var(--black);
+      outline: none;
+      transition: border-color 0.2s;
+    }
+ 
+    .search-input::placeholder { color: var(--muted); }
+    .search-input:focus { border-color: var(--teal); }
+ 
+    .search-btn {
+      width: 100%;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: lowercase;
+      padding: 14px;
+      background: var(--teal);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+ 
+    .search-btn:hover { background: var(--teal-dark); }
+    .search-btn:disabled { background: var(--muted); cursor: not-allowed; }
+ 
+    /* ── HERO RIGHT: placeholder / chart panel ── */
+    .hero-right {
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: var(--off-white);
+      min-height: 320px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+ 
+    .placeholder-text {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: center;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2rem;
+    }
+ 
+    .chart-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+      border-radius: 6px;
+    }
+ 
+    /* ── RESULTS SECTION ── */
+    .results-section {
+      padding: 2.5rem 2.5rem;
+      display: none;
+    }
+ 
+    .results-section.visible { display: block; }
+ 
+    .results-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      border-bottom: 1.5px solid var(--black);
+      padding-bottom: 0.75rem;
+      margin-bottom: 2rem;
+    }
+ 
+    .results-header h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+ 
+    .results-keyword {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.1rem;
+      font-style: italic;
+      color: var(--black);
+    }
+ 
+    .results-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+ 
+    .stat-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+ 
+    .stat-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+ 
+    .stat-value {
+      font-family: 'Playfair Display', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      line-height: 1;
+      color: var(--black);
+    }
+ 
+    .status-badge {
+      display: inline-block;
+      font-family: 'Space Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 20px;
+      margin-top: 0.4rem;
+    }
+ 
+    .status-badge.rising  { background: #d4f5ed; color: #006b55; }
+    .status-badge.fading  { background: #fde8e8; color: #8b1c1c; }
+    .status-badge.stable  { background: #ebebeb; color: #555550; }
+ 
+    /* ── LOADING SPINNER ── */
+    .loading {
+      display: none;
+      padding: 3rem 2.5rem;
+      text-align: center;
+    }
+ 
+    .loading.visible { display: block; }
+ 
+    .spinner {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      border: 2.5px solid var(--border);
+      border-top-color: var(--teal);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 1rem;
+    }
+ 
+    @keyframes spin { to { transform: rotate(360deg); } }
+ 
+    .loading p {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+ 
+    /* ── ERROR STATE ── */
+    .error-msg {
+      display: none;
+      padding: 1rem 2.5rem;
+    }
+ 
+    .error-msg.visible { display: block; }
+ 
+    .error-inner {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.72rem;
+      color: #8b1c1c;
+      background: #fde8e8;
+      border: 1px solid #f5c0c0;
+      border-radius: 6px;
+      padding: 12px 16px;
+    }
+ 
+    /* ── FOOTER ── */
+    footer {
+      padding: 1.5rem 2.5rem;
+      border-top: 1px solid var(--border);
+      font-family: 'Space Mono', monospace;
+      font-size: 0.6rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+ 
+<body>
+ 
+  <!-- NAVBAR -->
+  <nav>
+    <div class="nav-left">
+      <span id="live-datetime">–</span>
+      <button class="report-btn" onclick="scrollToResults()">today's report.</button>
+    </div>
+    <a class="nav-logo" href="#">thread-sight</a>
+    <div class="nav-right">
+      <button class="nav-btn">learn more.</button>
+      <button class="nav-btn">settings.</button>
+    </div>
+  </nav>
+ 
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-left">
+      <p class="hero-eyebrow">where data meets fashion..</p>
+      <h1 class="hero-title">Welcome to<br>Thread-sight!</h1>
+      <p class="hero-desc">
+        this python-based project tracks and analyzes fashion trend keywords using google trends.
+        phase one includes:
+      </p>
+      <ul class="phase-list">
+        <li>multiple keyword analysis</li>
+        <li>growth calculation and trend status</li>
+        <li>individual and comparison visualization</li>
+      </ul>
+ 
+      <!-- SEARCH -->
+      <div class="search-wrap">
+        <input
+          class="search-input"
+          id="keyword-input"
+          type="text"
+          placeholder="please type in a keyword or trend (ex. y2k fashion).."
+        />
+        <button class="search-btn" id="analyze-btn" onclick="analyzeTrend()">
+          click to analyze trend.
+        </button>
+      </div>
+    </div>
+ 
+    <!-- CHART PANEL -->
+    <div class="hero-right" id="chart-panel">
+      <p class="placeholder-text" id="chart-placeholder">your chart<br>will appear here.</p>
+      <img class="chart-img" id="chart-img" alt="trend chart" />
+    </div>
+  </section>
+ 
+  <!-- LOADING -->
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>fetching trend data..</p>
+  </div>
+ 
+  <!-- ERROR -->
+  <div class="error-msg" id="error-msg">
+    <div class="error-inner" id="error-text"></div>
+  </div>
+ 
+  <!-- RESULTS -->
+  <section class="results-section" id="results-section">
+    <div class="results-header">
+      <h2>trend report</h2>
+      <span class="results-keyword" id="results-keyword"></span>
+    </div>
+ 
+    <div class="results-grid">
+      <!-- GROWTH CARD -->
+      <div class="stat-card">
+        <p class="stat-label">growth</p>
+        <p class="stat-value" id="growth-value">–</p>
+        <p style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:6px;">
+          vs. same period last year
+        </p>
+      </div>
+ 
+      <!-- STATUS CARD -->
+      <div class="stat-card">
+        <p class="stat-label">trend status</p>
+        <div style="margin-top:0.5rem;">
+          <span class="status-badge" id="status-badge">–</span>
+        </div>
+        <p style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:10px;">
+          based on 12-month google trends data
+        </p>
+      </div>
+ 
+      <!-- KEYWORD CARD -->
+      <div class="stat-card">
+        <p class="stat-label">keyword</p>
+        <p class="stat-value" style="font-size:1.2rem;margin-top:0.5rem;" id="keyword-display">–</p>
+        <p style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:6px;">
+          searched via google trends api
+        </p>
+      </div>
+    </div>
+  </section>
+ 
+  <!-- FOOTER -->
+  <footer>
+    <span>thread-sight v0.2 — phase 2 in progress</span>
+    <span>powered by google trends + pytrends</span>
+  </footer>
+ 
+  <script>
+    // ── LIVE CLOCK ──
+    function updateClock() {
+      const now = new Date();
+      const opts = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      document.getElementById('live-datetime').textContent = now.toLocaleString('en-US', opts).toLowerCase();
+    }
+    updateClock();
+    setInterval(updateClock, 60000);
+ 
+    // ── ALLOW ENTER KEY TO SUBMIT ──
+    document.getElementById('keyword-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') analyzeTrend();
+    });
+ 
+    // ── MAIN ANALYZE FUNCTION ──
+    // this calls the /analyze route we built in app.py
+    // it sends the keyword as JSON and gets back growth, status, and a chart image
+    async function analyzeTrend() {
+      const keyword = document.getElementById('keyword-input').value.trim();
+      if (!keyword) return;
+ 
+      // reset UI state
+      setLoading(true);
+      hideResults();
+      hideError();
+      resetChart();
+ 
+      try {
+        // POST request to our Flask backend — this is how the frontend talks to Python
+        const response = await fetch('/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyword })
+          // JSON.stringify turns the JS object into a string Flask can read
+        });
+ 
+        const data = await response.json();
+ 
+        if (!response.ok) {
+          // Flask returned an error (like no data found)
+          showError(data.error || 'something went wrong.');
+          return;
+        }
+ 
+        // show the results
+        displayResults(data);
+ 
+      } catch (err) {
+        // network error or Flask is not running
+        showError('could not connect to server. make sure app.py is running.');
+      } finally {
+        setLoading(false);
+      }
+    }
+ 
+    function displayResults(data) {
+      // populate stat cards
+      document.getElementById('results-keyword').textContent = `"${data.keyword}"`;
+      document.getElementById('keyword-display').textContent = data.keyword;
+      document.getElementById('growth-value').textContent =
+        (data.growth >= 0 ? '+' : '') + data.growth + '%';
+ 
+      // status badge — add a class to color it correctly
+      const badge = document.getElementById('status-badge');
+      badge.textContent = data.status;
+      badge.className = 'status-badge'; // reset
+      if (data.status === 'rising') badge.classList.add('rising');
+      else if (data.status === 'fading') badge.classList.add('fading');
+      else badge.classList.add('stable');
+ 
+      // show the chart — Flask returned a base64 string, we embed it as an image
+      if (data.chart) {
+        const img = document.getElementById('chart-img');
+        img.src = 'data:image/png;base64,' + data.chart;
+        img.style.display = 'block';
+        document.getElementById('chart-placeholder').style.display = 'none';
+      }
+ 
+      // show results section
+      document.getElementById('results-section').classList.add('visible');
+    }
+ 
+    // ── HELPERS ──
+    function setLoading(on) {
+      document.getElementById('loading').classList.toggle('visible', on);
+      document.getElementById('analyze-btn').disabled = on;
+    }
+ 
+    function hideResults() {
+      document.getElementById('results-section').classList.remove('visible');
+    }
+ 
+    function hideError() {
+      document.getElementById('error-msg').classList.remove('visible');
+    }
+ 
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      document.getElementById('error-text').textContent = msg;
+      el.classList.add('visible');
+    }
+ 
+    function resetChart() {
+      document.getElementById('chart-img').style.display = 'none';
+      document.getElementById('chart-placeholder').style.display = 'block';
+    }
+ 
+    function scrollToResults() {
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>
