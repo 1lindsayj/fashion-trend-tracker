@@ -1,7 +1,6 @@
-blinker==1.9.0
-click==8.3.1
-Flask==3.1.2
-itsdangerous==2.2.0
-Jinja2==3.1.6
-MarkupSafe==3.0.3
-Werkzeug==3.1.5
+flask>=3.0.0
+flask-limiter>=3.5.0
+pytrends>=4.9.2
+requests>=2.31.0
+matplotlib>=3.8.0
+python-dotenv>=1.0.0

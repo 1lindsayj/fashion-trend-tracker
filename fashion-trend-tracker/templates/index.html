@@ -1,599 +1,1236 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>thread-sight</title>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
- 
+  <link rel="icon" type="image/png" href="/static/threadsighticon.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
- 
-    :root {
-      --teal: #00b89c;
-      --teal-dark: #008a73;
-      --black: #0d0d0d;
-      --white: #fafaf8;
-      --off-white: #f2f0ea;
-      --muted: #888880;
-      --border: #d8d6ce;
-      --rising: #00b89c;
-      --fading: #c0392b;
-      --stable: #888880;
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --cyan:#00BFA6;--cyan-dk:#009c87;
+      --black:#000;--white:#fff;
+      --muted:#666;--border:#ddd;--bg:#f7f7f7;
     }
- 
-    body {
-      font-family: 'DM Sans', sans-serif;
-      background: var(--white);
-      color: var(--black);
-      min-height: 100vh;
+    html{scroll-behavior:smooth}
+    body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black);min-height:100vh}
+
+    /* ── PAGE LOADING OVERLAY ───────────────────────────────────────────────── */
+    #loading-overlay{
+      position:fixed;inset:0;z-index:9999;background:#fff;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;
+      transition:opacity .6s ease;
     }
- 
-    /* ── NAVBAR ── */
-    nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 1rem 2.5rem;
-      border-bottom: 1.5px solid var(--black);
+    #loading-overlay.hidden{opacity:0;pointer-events:none}
+    .file-stack{position:relative;width:180px;height:220px}
+    .file{
+      position:absolute;bottom:0;left:50%;width:140px;height:180px;
+      border-radius:4px 4px 2px 2px;transform-origin:bottom center;transform:translateX(-50%);
     }
- 
-    .nav-left {
-      display: flex;
-      flex-direction: column;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.7rem;
-      color: var(--muted);
-      gap: 2px;
+    .file-1{background:#E8603C;z-index:1;animation:shuffle1 1.4s ease-in-out infinite alternate}
+    .file-2{background:#1B3A8C;z-index:2;animation:shuffle2 1.4s ease-in-out infinite alternate}
+    .file-3{background:#00BFA6;z-index:3;animation:shuffle3 1.4s ease-in-out infinite alternate}
+    .file-4{background:#E8C4C0;z-index:4;animation:shuffle4 1.4s ease-in-out infinite alternate}
+    .file-5{background:#2c2c2c;z-index:5;animation:shuffle5 1.4s ease-in-out infinite alternate}
+    .file::before,.file::after{content:'';position:absolute;left:14px;right:14px;height:2px;background:rgba(255,255,255,.2);border-radius:1px}
+    .file::before{top:28px}.file::after{top:40px;width:60%;right:auto}
+    .file-tab{position:absolute;top:-10px;left:12px;width:40px;height:12px;border-radius:3px 3px 0 0;background:inherit;filter:brightness(1.2)}
+    .file-lines{position:absolute;top:56px;left:14px;right:14px;display:flex;flex-direction:column;gap:6px}
+    .file-line{height:2px;background:rgba(255,255,255,.15);border-radius:1px}
+    .file-line:nth-child(even){width:70%}.file-line:nth-child(3){width:85%}
+    @keyframes shuffle1{0%{transform:translateX(-50%) rotate(-6deg) translateY(10px)}100%{transform:translateX(-50%) rotate(-3deg) translateY(0)}}
+    @keyframes shuffle2{0%{transform:translateX(-50%) rotate(-2deg) translateY(8px)}100%{transform:translateX(-50%) rotate(1deg) translateY(-4px)}}
+    @keyframes shuffle3{0%{transform:translateX(-50%) rotate(1deg) translateY(6px)}100%{transform:translateX(-50%) rotate(-1deg) translateY(-8px)}}
+    @keyframes shuffle4{0%{transform:translateX(-50%) rotate(3deg) translateY(4px)}100%{transform:translateX(-50%) rotate(5deg) translateY(-12px)}}
+    @keyframes shuffle5{0%{transform:translateX(-50%) rotate(6deg) translateY(2px)}100%{transform:translateX(-50%) rotate(3deg) translateY(-16px)}}
+    @keyframes blink{0%,100%{opacity:0}50%{opacity:1}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+    .loading-label{font-family:'Space Mono',monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+    .loading-dots span{animation:blink 1.2s step-start infinite}
+    .loading-dots span:nth-child(2){animation-delay:.2s}
+    .loading-dots span:nth-child(3){animation-delay:.4s}
+    .loading-sub{font-family:'Playfair Display',serif;font-style:italic;font-size:.85rem;color:#bbb}
+
+    /* ── FETCH LOADING SPINNER ──────────────────────────────────────────────── */
+    #fetch-loading{display:none;padding:2rem 2.5rem;text-align:center}
+    .fetch-spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .75s linear infinite;margin-bottom:.75rem}
+
+    /* ── NAVBAR ─────────────────────────────────────────────────────────────── */
+    nav{
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      align-items:center;
+      padding:.9rem 2.5rem;
+      border-bottom:2px solid var(--black);
+      background:var(--white);
+      position:sticky;top:0;z-index:200;
+      gap:1rem;
     }
- 
-    .nav-left .report-btn {
-      display: inline-block;
-      background: var(--teal);
-      color: white;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem;
-      font-weight: 700;
-      padding: 4px 10px;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-      margin-top: 4px;
-      letter-spacing: 0.03em;
-      text-transform: lowercase;
+    .nav-left{
+      display:flex;flex-direction:column;gap:4px;
+      font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);
+      justify-self:start;
     }
- 
-    .nav-logo {
-      font-family: 'Playfair Display', serif;
-      font-size: 2rem;
-      font-style: italic;
-      font-weight: 400;
-      letter-spacing: -0.02em;
-      color: var(--black);
-      text-decoration: none;
+    .nav-left .report-btn{
+      width:fit-content;background:var(--cyan);color:var(--white);
+      font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;
+      padding:4px 10px;border:none;cursor:pointer;
+      letter-spacing:.05em;text-transform:lowercase;transition:background .15s;
     }
- 
-    .nav-right {
-      display: flex;
-      gap: 0.75rem;
+    .nav-left .report-btn:hover{background:var(--cyan-dk)}
+    .nav-logo{
+      justify-self:center;white-space:nowrap;
+      font-family:'Playfair Display',serif;font-size:1.85rem;font-style:italic;
+      font-weight:400;letter-spacing:-.03em;color:var(--black);text-decoration:none;
     }
- 
-    .nav-btn {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem;
-      font-weight: 700;
-      padding: 6px 14px;
-      background: var(--black);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      letter-spacing: 0.03em;
-      text-transform: lowercase;
-      transition: background 0.2s;
+    .nav-right{display:flex;gap:.6rem;justify-self:end;align-items:center}
+    .nav-btn{
+      font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;
+      padding:6px 14px;background:var(--black);color:var(--white);
+      border:none;cursor:pointer;letter-spacing:.05em;
+      text-transform:lowercase;transition:background .15s;white-space:nowrap;
     }
- 
-    .nav-btn:hover { background: #333; }
- 
-    /* ── HERO ── */
-    .hero {
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 3rem;
-      padding: 3rem 2.5rem 2rem;
-      border-bottom: 1px solid var(--border);
-      align-items: start;
+    .nav-btn:hover{background:#222}
+
+    /* ── TICKER ─────────────────────────────────────────────────────────────── */
+    .ticker-bar{background:var(--black);color:var(--white);font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 0;overflow:hidden;white-space:nowrap}
+    .ticker-track{display:inline-block;animation:ticker 28s linear infinite}
+    .ticker-track span{margin-right:4rem}
+    .ticker-dot{color:var(--cyan);margin-right:.4rem}
+
+    /* ── HERO ───────────────────────────────────────────────────────────────── */
+    .hero{display:grid;grid-template-columns:1fr 360px;border-bottom:1px solid var(--border)}
+    .hero-left{padding:3rem 2.5rem;border-right:1px solid var(--border)}
+    .hero-eyebrow{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin-bottom:1.2rem}
+    .hero-title{font-family:'Playfair Display',serif;font-size:clamp(2.6rem,4.5vw,4rem);font-style:italic;font-weight:400;line-height:1.05;letter-spacing:-.02em;margin-bottom:1.5rem}
+    .hero-title em{font-style:normal;color:var(--cyan)}
+    .hero-desc{font-size:.85rem;color:var(--muted);line-height:1.75;max-width:480px;margin-bottom:1.5rem;border-left:2px solid var(--cyan);padding-left:1rem}
+    .sources-row{display:flex;gap:.5rem;margin-bottom:2rem;flex-wrap:wrap}
+    .source-pill{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border:1px solid var(--black);color:var(--black)}
+    .source-pill.active{background:var(--black);color:var(--white)}
+    .search-wrap{display:flex;flex-direction:column;gap:.6rem}
+    .search-input{width:100%;font-family:'Space Mono',monospace;font-size:.78rem;padding:13px 16px;border:2px solid var(--black);background:var(--white);color:var(--black);outline:none;transition:border-color .15s}
+    .search-input::placeholder{color:var(--muted)}
+    .search-input:focus{border-color:var(--cyan)}
+    .search-input.invalid{border-color:#c0392b}
+    .search-btn{width:100%;font-family:'Space Mono',monospace;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:lowercase;padding:13px;background:var(--cyan);color:var(--white);border:none;cursor:pointer;transition:background .15s}
+    .search-btn:hover{background:var(--cyan-dk)}
+    .search-btn:disabled{background:var(--muted);cursor:not-allowed}
+    .input-error{font-family:'Space Mono',monospace;font-size:.62rem;color:#8b1c1c;display:none}
+    .input-error.visible{display:block}
+    .rate-warning{font-family:'Space Mono',monospace;font-size:.62rem;color:#7a5c00;background:#fff8e1;border-left:3px solid #f0b429;padding:8px 12px;display:none}
+    .rate-warning.visible{display:block}
+
+    /* ── HERO RIGHT + SLIDESHOW ─────────────────────────────────────────────── */
+    .hero-right{padding:2.5rem 2rem;background:var(--bg);display:flex;flex-direction:column;gap:1.25rem}
+    .panel-label{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:.6rem}
+    .slideshow{position:relative;flex:1;min-height:200px;overflow:hidden;background:var(--black);cursor:pointer}
+    .slideshow::after{content:'click to explore →';position:absolute;bottom:32px;right:12px;font-family:'Space Mono',monospace;font-size:.5rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.5);pointer-events:none}
+    .slide{position:absolute;inset:0;opacity:0;transition:opacity .9s ease;display:flex;align-items:flex-end}
+    .slide.active{opacity:1}
+    .slide-caption{font-family:'Space Mono',monospace;font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--white);padding:8px 12px;background:rgba(0,0,0,.55);backdrop-filter:blur(2px);width:100%}
+    .slide-1{background:linear-gradient(135deg,#E8603C,#C8391A)}
+    .slide-2{background:linear-gradient(135deg,#1B3A8C,#0D2260)}
+    .slide-3{background:linear-gradient(135deg,#6BAE75,#3D7A4A)}
+    .slide-4{background:linear-gradient(135deg,#E8C4C0,#C8948E)}
+    .slide-5{background:linear-gradient(135deg,#00BFA6,#007A6B)}
+    .slide-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}
+    .slide-trend-word{font-family:'Playfair Display',serif;font-style:italic;font-size:1.6rem;color:var(--white);text-align:center;line-height:1.1;text-shadow:0 2px 12px rgba(0,0,0,.3)}
+    .slide-trend-tag{font-family:'Space Mono',monospace;font-size:.55rem;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.7)}
+    .slide-dots{display:flex;gap:5px;justify-content:center;padding:8px 0 4px}
+    .slide-dot{width:5px;height:5px;border-radius:50%;background:var(--border);cursor:pointer;transition:background .2s;border:none}
+    .slide-dot.active{background:var(--cyan)}
+    .chart-container{flex:1;min-height:200px;background:var(--white);border:1px solid var(--border);display:none;align-items:center;justify-content:center;overflow:hidden}
+    .chart-container.visible{display:flex}
+    .chart-img{width:100%;height:100%;object-fit:contain}
+    .stat-mini{display:flex;flex-direction:column;gap:3px}
+    .stat-mini-label{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .stat-mini-val{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;line-height:1}
+    .stat-mini-val.cyan{color:var(--cyan)}
+
+    /* ── ERROR ──────────────────────────────────────────────────────────────── */
+    .error-msg{display:none;padding:0 2.5rem 1rem}
+    .error-msg.visible{display:block}
+    .error-inner{font-family:'Space Mono',monospace;font-size:.7rem;color:#8b1c1c;background:#fde8e8;border-left:3px solid #c0392b;padding:12px 16px}
+
+    /* ── REPORT CARD ────────────────────────────────────────────────────────── */
+    #results-section{
+      display:none;
+      transform:scale(0.88) translateY(20px);
+      opacity:0;
+      transition:transform .45s cubic-bezier(.22,1,.36,1), opacity .35s ease;
     }
- 
-    .hero-eyebrow {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 1rem;
+    #results-section.visible{display:block;transform:scale(1) translateY(0);opacity:1}
+
+    .rc-header{padding:2rem 2.5rem 1.5rem;border-bottom:2px solid var(--black);text-align:center}
+    .rc-eyebrow{font-family:'Playfair Display',serif;font-style:italic;font-size:.9rem;color:var(--muted);display:block;margin-bottom:.5rem}
+    .rc-title{
+      font-family:'Space Mono',monospace;font-size:clamp(1.6rem,3.5vw,2.6rem);
+      font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+      display:flex;align-items:baseline;justify-content:center;gap:.5rem;flex-wrap:wrap;
     }
- 
-    .hero-title {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(2.8rem, 5vw, 4.5rem);
-      font-style: italic;
-      font-weight: 400;
-      line-height: 1.05;
-      letter-spacing: -0.02em;
-      margin-bottom: 1.5rem;
-      color: var(--black);
+    .rc-title-kw{color:var(--cyan);border-bottom:3px solid var(--black);padding-bottom:2px;line-height:1.1}
+
+    /* ── INTERACTIVE CHART ──────────────────────────────────────────────────── */
+    .rc-chart-panel{width:100%;background:var(--bg);border-bottom:1px solid var(--border);padding:1.25rem 1.5rem 1rem;position:relative}
+    .rc-chart-toolbar{display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap}
+    .rc-chart-label{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);flex:1}
+    .rc-chart-range-btn{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.06em;padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+    .rc-chart-range-btn.active{background:var(--black);color:var(--white);border-color:var(--black)}
+    .rc-chart-range-btn:hover:not(.active){border-color:var(--cyan);color:var(--cyan)}
+    .rc-chart-expand-btn{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.06em;padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .15s}
+    .rc-chart-expand-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+    .rc-chart-wrap{position:relative;height:180px;width:100%}
+    .rc-chart-stats{display:flex;gap:1.5rem;margin-top:.75rem;flex-wrap:wrap}
+    .rc-chart-stat{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted);letter-spacing:.04em}
+    .rc-chart-stat strong{color:var(--black)}
+    /* expand modal */
+    .chart-modal{display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.92);align-items:center;justify-content:center;flex-direction:column;gap:1rem}
+    .chart-modal.open{display:flex}
+    .chart-modal-inner{background:var(--white);padding:1.5rem 1.75rem 1.25rem;width:92vw;max-width:980px;position:relative}
+    .chart-modal-wrap{height:440px;width:100%;position:relative}
+    .chart-modal-close{position:absolute;top:1rem;right:1.25rem;background:none;border:1px solid var(--border);color:var(--muted);font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer}
+    .chart-modal-close:hover{border-color:var(--cyan);color:var(--cyan)}
+
+    .rc-body{display:grid;grid-template-columns:260px 1fr;border-bottom:1px solid var(--border)}
+    .rc-left{border-right:2px solid var(--black);padding:2rem 1.75rem;display:flex;flex-direction:column;gap:2rem}
+    .rc-right{padding:2rem 2rem 2rem 2.5rem;display:flex;flex-direction:column;gap:1.5rem}
+    .rc-section-label{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.6rem}
+    .rc-history-text{font-family:'DM Sans',sans-serif;font-size:.82rem;line-height:1.65}
+    .rc-media-num{font-family:'Playfair Display',serif;font-size:2.2rem;font-weight:700;line-height:1}
+    .rc-media-sub{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:4px;letter-spacing:.06em}
+    .rc-sources-list{display:flex;flex-direction:column;gap:.5rem}
+    .rc-source-link{font-family:'DM Sans',sans-serif;font-size:.75rem;color:var(--black);text-decoration:none;line-height:1.35;border-bottom:1px solid var(--border);padding-bottom:.5rem;display:block}
+    .rc-source-link:last-child{border-bottom:none;padding-bottom:0}
+    .rc-source-link:hover{color:var(--cyan)}
+    .rc-source-pub{display:block;font-family:'Space Mono',monospace;font-size:.55rem;color:var(--cyan);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px}
+    .rc-status-row{display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap}
+    .rc-status-label{font-family:'Space Mono',monospace;font-size:1rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase}
+    .rc-status-val{font-family:'Space Mono',monospace;font-size:1.1rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 14px}
+    .rc-status-val.rising{background:#d4f5ed;color:#006b55}
+    .rc-status-val.fading{background:#fde8e8;color:#8b1c1c}
+    .rc-status-val.stable{background:#ebebeb;color:#444}
+    .rc-explain{font-family:'DM Sans',sans-serif;font-size:.88rem;line-height:1.75;max-width:560px}
+    .rc-explain em{font-style:italic;color:var(--cyan)}
+
+    .rc-collage-btn{background:none;border:none;cursor:pointer;padding:0;text-align:left;width:100%}
+    .rc-collage-strip{display:flex;height:120px;gap:3px;overflow:hidden;border:1px solid var(--border);background:var(--bg);position:relative}
+    .rc-collage-frame{flex:1;background-size:cover;background-position:center;filter:saturate(.9);transition:filter .25s;background-color:var(--border)}
+    .rc-collage-btn:hover .rc-collage-frame{filter:saturate(1.15)}
+    .rc-collage-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.15)}
+    .rc-collage-hint{font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.95);background:rgba(0,0,0,.5);padding:5px 12px;backdrop-filter:blur(4px)}
+    .rc-projected{font-family:'Space Mono',monospace;font-size:.72rem;color:var(--muted);letter-spacing:.04em}
+    .rc-projected strong{color:var(--black);font-weight:700}
+    .rc-disclaimer{font-family:'Space Mono',monospace;font-size:.58rem;color:#bbb;font-style:italic;margin-top:3px}
+    .rc-compare-btn{align-self:flex-start;font-family:'Space Mono',monospace;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:lowercase;padding:12px 28px;background:var(--cyan);color:var(--white);border:none;cursor:pointer;transition:background .15s}
+    .rc-compare-btn:hover{background:var(--cyan-dk)}
+
+    /* ── LOOKBOOK MODAL ─────────────────────────────────────────────────────── */
+    .collage-modal{display:none;position:fixed;inset:0;z-index:500;align-items:center;justify-content:center}
+    .collage-modal.open{display:flex}
+    .collage-backdrop{position:absolute;inset:0;background:linear-gradient(135deg,#00BFA6 0%,#004d42 50%,#001a17 100%);opacity:.97}
+    .collage-inner{position:relative;z-index:10;width:92%;max-width:960px;display:flex;flex-direction:column;gap:1.5rem}
+    .collage-modal-header{display:flex;align-items:flex-start;justify-content:space-between;gap:1rem}
+    .collage-modal-title{font-family:'Playfair Display',serif;font-style:italic;font-size:2rem;color:#fff;letter-spacing:-.02em}
+    .collage-modal-sub{font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.6);margin-top:4px}
+    .collage-close{flex-shrink:0;background:none;border:1px solid rgba(255,255,255,.3);color:#fff;font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:6px 14px;cursor:pointer;transition:background .15s}
+    .collage-close:hover{background:rgba(255,255,255,.1)}
+    .collage-book{display:flex;gap:8px;height:320px;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
+    .collage-book::-webkit-scrollbar{height:4px}
+    .collage-book::-webkit-scrollbar-thumb{background:rgba(255,255,255,.3)}
+    .collage-photo{flex-shrink:0;width:230px;height:100%;background-size:cover;background-position:center;position:relative;overflow:hidden;background-color:#2a2a2a}
+    .collage-photo::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.35) 0%,transparent 55%)}
+    .palette-panel{position:absolute;right:-70px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);padding:10px 8px;border-radius:4px}
+    .palette-chip{width:40px;height:40px;border-radius:2px;border:1px solid rgba(255,255,255,.15);position:relative;cursor:default}
+    .palette-chip:hover::after{content:attr(data-hex);position:absolute;right:calc(100% + 6px);top:50%;transform:translateY(-50%);font-family:'Space Mono',monospace;font-size:.55rem;color:#fff;background:rgba(0,0,0,.7);padding:3px 7px;border-radius:2px;white-space:nowrap}
+    .collage-caption{font-family:'Space Mono',monospace;font-size:.62rem;color:rgba(255,255,255,.65);letter-spacing:.06em;text-align:center}
+
+    /* ── LEARN MORE MODAL ───────────────────────────────────────────────────── */
+    .ts-modal-overlay{
+      display:none;position:fixed;inset:0;z-index:700;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.6);
+      backdrop-filter:blur(4px);
     }
- 
-    .hero-desc {
-      font-size: 0.9rem;
-      color: var(--muted);
-      line-height: 1.7;
-      max-width: 520px;
-      margin-bottom: 1rem;
+    .ts-modal-overlay.open{display:flex}
+
+    .ts-modal{
+      position:relative;width:92%;max-width:560px;max-height:88vh;overflow-y:auto;
+      border-radius:4px;
+      background:linear-gradient(145deg,#0a2a24 0%,#002e29 35%,#00120f 70%,#000 100%);
+      border:1px solid rgba(0,191,166,.25);
+      padding:2.5rem 2.75rem;
+      color:#fff;
     }
- 
-    .phase-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      margin-bottom: 2rem;
+    .ts-modal-close{
+      position:absolute;top:1.25rem;right:1.5rem;
+      background:none;border:1px solid rgba(255,255,255,.2);
+      color:rgba(255,255,255,.7);font-family:'Space Mono',monospace;
+      font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+      padding:5px 12px;cursor:pointer;transition:all .15s;
     }
- 
-    .phase-list li {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.68rem;
-      color: var(--black);
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    .ts-modal-close:hover{border-color:var(--cyan);color:var(--cyan)}
+    .ts-modal-brand{font-family:'Playfair Display',serif;font-style:italic;font-size:1rem;text-align:center;color:rgba(255,255,255,.5);margin-bottom:.25rem}
+    .ts-modal-title{font-family:'Space Mono',monospace;font-size:1.4rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;text-align:center;margin-bottom:2rem;color:#fff}
+    .ts-modal-label{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.4rem}
+    .ts-modal-body{font-family:'DM Sans',sans-serif;font-size:.88rem;line-height:1.75;color:var(--cyan);margin-bottom:1.5rem}
+    .ts-modal-divider{border:none;border-top:1px solid rgba(255,255,255,.1);margin:1.5rem 0}
+    .ts-modal-link{color:var(--cyan);text-decoration:none;font-family:'Space Mono',monospace;font-size:.72rem;letter-spacing:.04em}
+    .ts-modal-link:hover{text-decoration:underline}
+    .ts-modal-plain{font-family:'DM Sans',sans-serif;font-size:.85rem;line-height:1.7;color:rgba(255,255,255,.75);margin-bottom:.5rem}
+    .ts-modal-plain strong{color:#fff;font-weight:700}
+    .ts-modal-accent{color:var(--cyan)}
+
+    /* ── SETTINGS MODAL ─────────────────────────────────────────────────────── */
+    .ts-settings-modal{
+      position:relative;width:92%;max-width:500px;max-height:88vh;overflow-y:auto;
+      border-radius:4px;
+      background:linear-gradient(145deg,#0a0a1a 0%,#0d1229 40%,#0a0a0a 100%);
+      border:1px solid rgba(255,255,255,.12);
+      padding:2.5rem 2.75rem;
+      color:#fff;
     }
- 
-    .phase-list li::before {
-      content: '';
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--teal);
-      flex-shrink: 0;
+    .ts-settings-subtitle{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.4);margin:1.5rem 0 .75rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.08)}
+    .ts-settings-subtitle:first-of-type{margin-top:0;border-top:none;padding-top:0}
+    .ts-toggle-group{display:flex;gap:.6rem;flex-wrap:wrap}
+    .ts-toggle-btn{
+      font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;
+      letter-spacing:.06em;text-transform:lowercase;
+      padding:8px 20px;border:1.5px solid rgba(255,255,255,.2);
+      background:transparent;color:rgba(255,255,255,.6);cursor:pointer;transition:all .2s;
     }
- 
-    /* ── SEARCH BOX ── */
-    .search-wrap {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+    .ts-toggle-btn.active{background:#fff;color:#000;border-color:#fff}
+    .ts-toggle-btn:hover:not(.active){border-color:rgba(255,255,255,.5);color:#fff}
+    .ts-select{
+      font-family:'Space Mono',monospace;font-size:.65rem;
+      padding:9px 14px;border:1.5px solid rgba(255,255,255,.2);
+      background:rgba(255,255,255,.05);color:rgba(255,255,255,.8);
+      outline:none;cursor:pointer;width:100%;margin-top:.25rem;
     }
- 
-    .search-input {
-      width: 100%;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.78rem;
-      padding: 14px 18px;
-      border: 1.5px solid var(--black);
-      border-radius: 6px;
-      background: white;
-      color: var(--black);
-      outline: none;
-      transition: border-color 0.2s;
+    .ts-select option{background:#1a1a2e;color:#fff}
+    .ts-slider-row{display:flex;align-items:center;gap:1rem;margin-top:.5rem}
+    .ts-range{-webkit-appearance:none;appearance:none;height:3px;background:rgba(255,255,255,.15);outline:none;flex:1}
+    .ts-range::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--cyan);cursor:pointer}
+    .ts-range-val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--cyan);min-width:28px;text-align:right}
+    .ts-privacy-text{font-family:'DM Sans',sans-serif;font-size:.82rem;line-height:1.7;color:rgba(255,255,255,.55);text-align:center;margin-top:.25rem}
+    .ts-reduce-btn{
+      font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;
+      letter-spacing:.06em;text-transform:lowercase;
+      padding:8px 20px;border:1.5px solid var(--cyan);
+      background:rgba(0,191,166,.15);color:var(--cyan);cursor:pointer;transition:all .2s;
     }
- 
-    .search-input::placeholder { color: var(--muted); }
-    .search-input:focus { border-color: var(--teal); }
- 
-    .search-btn {
-      width: 100%;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: lowercase;
-      padding: 14px;
-      background: var(--teal);
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
- 
-    .search-btn:hover { background: var(--teal-dark); }
-    .search-btn:disabled { background: var(--muted); cursor: not-allowed; }
- 
-    /* ── HERO RIGHT: placeholder / chart panel ── */
-    .hero-right {
-      border: 1.5px solid var(--border);
-      border-radius: 8px;
-      background: var(--off-white);
-      min-height: 320px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      position: relative;
-    }
- 
-    .placeholder-text {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem;
-      color: var(--muted);
-      text-align: center;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      padding: 2rem;
-    }
- 
-    .chart-img {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      display: none;
-      border-radius: 6px;
-    }
- 
-    /* ── RESULTS SECTION ── */
-    .results-section {
-      padding: 2.5rem 2.5rem;
-      display: none;
-    }
- 
-    .results-section.visible { display: block; }
- 
-    .results-header {
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      border-bottom: 1.5px solid var(--black);
-      padding-bottom: 0.75rem;
-      margin-bottom: 2rem;
-    }
- 
-    .results-header h2 {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--muted);
-    }
- 
-    .results-keyword {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.1rem;
-      font-style: italic;
-      color: var(--black);
-    }
- 
-    .results-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1.25rem;
-      margin-bottom: 2rem;
-    }
- 
-    .stat-card {
-      background: white;
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1.25rem;
-    }
- 
-    .stat-label {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.6rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 0.5rem;
-    }
- 
-    .stat-value {
-      font-family: 'Playfair Display', serif;
-      font-size: 2rem;
-      font-weight: 700;
-      line-height: 1;
-      color: var(--black);
-    }
- 
-    .status-badge {
-      display: inline-block;
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 6px 14px;
-      border-radius: 20px;
-      margin-top: 0.4rem;
-    }
- 
-    .status-badge.rising  { background: #d4f5ed; color: #006b55; }
-    .status-badge.fading  { background: #fde8e8; color: #8b1c1c; }
-    .status-badge.stable  { background: #ebebeb; color: #555550; }
- 
-    /* ── LOADING SPINNER ── */
-    .loading {
-      display: none;
-      padding: 3rem 2.5rem;
-      text-align: center;
-    }
- 
-    .loading.visible { display: block; }
- 
-    .spinner {
-      display: inline-block;
-      width: 28px;
-      height: 28px;
-      border: 2.5px solid var(--border);
-      border-top-color: var(--teal);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      margin-bottom: 1rem;
-    }
- 
-    @keyframes spin { to { transform: rotate(360deg); } }
- 
-    .loading p {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.7rem;
-      color: var(--muted);
-      letter-spacing: 0.06em;
-    }
- 
-    /* ── ERROR STATE ── */
-    .error-msg {
-      display: none;
-      padding: 1rem 2.5rem;
-    }
- 
-    .error-msg.visible { display: block; }
- 
-    .error-inner {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.72rem;
-      color: #8b1c1c;
-      background: #fde8e8;
-      border: 1px solid #f5c0c0;
-      border-radius: 6px;
-      padding: 12px 16px;
-    }
- 
-    /* ── FOOTER ── */
-    footer {
-      padding: 1.5rem 2.5rem;
-      border-top: 1px solid var(--border);
-      font-family: 'Space Mono', monospace;
-      font-size: 0.6rem;
-      color: var(--muted);
-      letter-spacing: 0.06em;
-      display: flex;
-      justify-content: space-between;
-    }
+    .ts-reduce-btn.active{background:var(--cyan);color:#000}
+    .ts-reduce-btn:hover:not(.active){background:rgba(0,191,166,.25)}
+
+    /* ── FOOTER ─────────────────────────────────────────────────────────────── */
+    footer{padding:1.25rem 2.5rem;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;display:flex;justify-content:space-between}
   </style>
 </head>
- 
 <body>
- 
-  <!-- NAVBAR -->
-  <nav>
-    <div class="nav-left">
-      <span id="live-datetime">–</span>
-      <button class="report-btn" onclick="scrollToResults()">today's report.</button>
-    </div>
-    <a class="nav-logo" href="#">thread-sight</a>
-    <div class="nav-right">
-      <button class="nav-btn">learn more.</button>
-      <button class="nav-btn">settings.</button>
-    </div>
-  </nav>
- 
-  <!-- HERO -->
-  <section class="hero">
-    <div class="hero-left">
-      <p class="hero-eyebrow">where data meets fashion..</p>
-      <h1 class="hero-title">Welcome to<br>Thread-sight!</h1>
-      <p class="hero-desc">
-        this python-based project tracks and analyzes fashion trend keywords using google trends.
-        phase one includes:
-      </p>
-      <ul class="phase-list">
-        <li>multiple keyword analysis</li>
-        <li>growth calculation and trend status</li>
-        <li>individual and comparison visualization</li>
-      </ul>
- 
-      <!-- SEARCH -->
-      <div class="search-wrap">
-        <input
-          class="search-input"
-          id="keyword-input"
-          type="text"
-          placeholder="please type in a keyword or trend (ex. y2k fashion).."
-        />
-        <button class="search-btn" id="analyze-btn" onclick="analyzeTrend()">
-          click to analyze trend.
-        </button>
-      </div>
-    </div>
- 
-    <!-- CHART PANEL -->
-    <div class="hero-right" id="chart-panel">
-      <p class="placeholder-text" id="chart-placeholder">your chart<br>will appear here.</p>
-      <img class="chart-img" id="chart-img" alt="trend chart" />
-    </div>
-  </section>
- 
-  <!-- LOADING -->
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <p>fetching trend data..</p>
+
+<!-- ══ PAGE LOADING OVERLAY ═════════════════════════════════════════════════ -->
+<div id="loading-overlay">
+  <div class="file-stack">
+    <div class="file file-1"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-2"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-3"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-4"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-5"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
   </div>
- 
-  <!-- ERROR -->
-  <div class="error-msg" id="error-msg">
-    <div class="error-inner" id="error-text"></div>
+  <div class="loading-label">sorting trend reports<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></div>
+  <div class="loading-sub">thread-sight is warming up</div>
+</div>
+
+<!-- ══ NAVBAR ═══════════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-left">
+    <span id="live-datetime">–</span>
+    <a href="/today"><button class="report-btn">today's report ↓</button></a>
   </div>
- 
-  <!-- RESULTS -->
-  <section class="results-section" id="results-section">
-    <div class="results-header">
-      <h2>trend report</h2>
-      <span class="results-keyword" id="results-keyword"></span>
+  <a class="nav-logo" href="/">thread-sight</a>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="openLearnMore()">learn more.</button>
+    <button class="nav-btn" onclick="openSettings()">settings.</button>
+  </div>
+</nav>
+
+<!-- ══ TICKER ═══════════════════════════════════════════════════════════════ -->
+<div class="ticker-bar">
+  <div class="ticker-track">
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>thread-sight v0.2</span>
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>thread-sight v0.2</span>
+  </div>
+</div>
+
+<!-- ══ HERO ══════════════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-left">
+    <p class="hero-eyebrow">where data meets fashion</p>
+    <h1 class="hero-title">What's trending<br>right <em>now.</em></h1>
+    <p class="hero-desc">this python-based project tracks and analyzes fashion trend keywords by pulling live data across google trends, newsapi, and pinterest to show you what's rising, fading, or holding steady.</p>
+    <div class="sources-row">
+      <span class="source-pill active">google trends</span>
+      <span class="source-pill active">newsapi</span>
+      <span class="source-pill active">pinterest</span>
     </div>
- 
-    <div class="results-grid">
-      <!-- GROWTH CARD -->
-      <div class="stat-card">
-        <p class="stat-label">growth</p>
-        <p class="stat-value" id="growth-value">–</p>
-        <p style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:6px;">
-          vs. same period last year
-        </p>
-      </div>
- 
-      <!-- STATUS CARD -->
-      <div class="stat-card">
-        <p class="stat-label">trend status</p>
-        <div style="margin-top:0.5rem;">
-          <span class="status-badge" id="status-badge">–</span>
+    <div class="search-wrap">
+      <input class="search-input" id="keyword-input" type="text" placeholder="enter a trend or keyword (e.g. quiet luxury).." maxlength="80"/>
+      <div class="input-error" id="input-error"></div>
+      <div class="rate-warning" id="rate-warning"></div>
+      <button class="search-btn" id="analyze-btn" onclick="analyzeTrend()">→ analyze trend</button>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <p class="panel-label">now trending</p>
+    <div class="slideshow" id="slideshow" onclick="analyzeFromSlide()">
+      <div class="slide slide-1 active"><div class="slide-overlay"><span class="slide-trend-word">quiet luxury</span><span class="slide-trend-tag">↑ rising · ss 2025</span></div><div class="slide-caption">terracotta · earthy minimalism</div></div>
+      <div class="slide slide-2"><div class="slide-overlay"><span class="slide-trend-word">gorpcore</span><span class="slide-trend-tag">↑ rising · aw 2025</span></div><div class="slide-caption">cobalt · outdoor utility</div></div>
+      <div class="slide slide-3"><div class="slide-overlay"><span class="slide-trend-word">coastal prep</span><span class="slide-trend-tag">→ stable · resort 2025</span></div><div class="slide-caption">sage · relaxed coastal</div></div>
+      <div class="slide slide-4"><div class="slide-overlay"><span class="slide-trend-word">coquette</span><span class="slide-trend-tag">↓ fading · ss 2024</span></div><div class="slide-caption">blush · feminine softness</div></div>
+      <div class="slide slide-5"><div class="slide-overlay"><span class="slide-trend-word">y2k revival</span><span class="slide-trend-tag">→ stable · aw 2025</span></div><div class="slide-caption">cyan · digital nostalgia</div></div>
+    </div>
+    <div class="slide-dots" id="slide-dots">
+      <button class="slide-dot active" onclick="event.stopPropagation();goToSlide(0)"></button>
+      <button class="slide-dot" onclick="event.stopPropagation();goToSlide(1)"></button>
+      <button class="slide-dot" onclick="event.stopPropagation();goToSlide(2)"></button>
+      <button class="slide-dot" onclick="event.stopPropagation();goToSlide(3)"></button>
+      <button class="slide-dot" onclick="event.stopPropagation();goToSlide(4)"></button>
+    </div>
+    <div class="chart-container" id="chart-container"><img class="chart-img" id="chart-img" alt="trend chart"/></div>
+    <div id="panel-stats" style="display:none;flex-direction:column;gap:.75rem;">
+      <div class="stat-mini"><span class="stat-mini-label">searched</span><span class="stat-mini-val" id="panel-keyword" style="font-size:1rem">—</span></div>
+      <div class="stat-mini"><span class="stat-mini-label">peak score</span><span class="stat-mini-val cyan" id="panel-score">—</span></div>
+      <div class="stat-mini"><span class="stat-mini-label">status</span><span class="stat-mini-val" id="panel-status" style="font-size:.9rem;font-family:'Space Mono',monospace">—</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FETCH LOADING SPINNER ════════════════════════════════════════════════ -->
+<div id="fetch-loading">
+  <div class="fetch-spinner"></div>
+  <p style="font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);letter-spacing:.06em">fetching trend data across sources..</p>
+</div>
+
+<!-- ══ ERROR ════════════════════════════════════════════════════════════════ -->
+<div class="error-msg" id="error-msg"><div class="error-inner" id="error-text"></div></div>
+
+<!-- ══ REPORT CARD ══════════════════════════════════════════════════════════ -->
+<section id="results-section">
+
+  <div class="rc-header">
+    <span class="rc-eyebrow">thread-sight</span>
+    <div class="rc-title">
+      <span class="rc-title-kw" id="rc-kw-title">—</span>
+      <span>REPORT CARD</span>
+    </div>
+  </div>
+
+  <!-- INTERACTIVE CHART PANEL -->
+  <div class="rc-chart-panel" id="rc-chart-panel">
+    <div class="rc-chart-toolbar">
+      <span class="rc-chart-label">interest over time</span>
+      <button class="rc-chart-range-btn" onclick="setChartRange(3)">3m</button>
+      <button class="rc-chart-range-btn active" onclick="setChartRange(12)">12m</button>
+      <button class="rc-chart-expand-btn" onclick="openChartModal()">expand ↗</button>
+    </div>
+    <div class="rc-chart-wrap">
+      <canvas id="rc-chart-canvas" aria-label="Trend interest over time chart"></canvas>
+    </div>
+    <div class="rc-chart-stats" id="rc-chart-stats"></div>
+  </div>
+
+  <div class="rc-body">
+    <div class="rc-left">
+      <div><p class="rc-section-label">history / define</p><p class="rc-history-text" id="rc-history">—</p></div>
+      <div><p class="rc-section-label">media mentions</p><p class="rc-media-num" id="rc-media-num">—</p><p class="rc-media-sub">articles in the last 30 days</p></div>
+      <div><p class="rc-section-label">sources: linked</p><div class="rc-sources-list" id="rc-sources-list"><p style="font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted)">no sources yet.</p></div></div>
+    </div>
+    <div class="rc-right">
+      <div class="rc-status-row"><span class="rc-status-label">STATUS:</span><span class="rc-status-val" id="rc-status-val">—</span></div>
+      <p class="rc-explain" id="rc-explain">—</p>
+
+      <button class="rc-collage-btn" onclick="openCollage()" aria-label="view trend look book">
+        <div class="rc-collage-strip" id="rc-collage-strip">
+          <div class="rc-collage-frame" id="cf0"></div>
+          <div class="rc-collage-frame" id="cf1"></div>
+          <div class="rc-collage-frame" id="cf2"></div>
+          <div class="rc-collage-frame" id="cf3"></div>
+          <div class="rc-collage-frame" id="cf4"></div>
+          <div class="rc-collage-overlay"><span class="rc-collage-hint">↔ view look book</span></div>
         </div>
-        <p style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:10px;">
-          based on 12-month google trends data
-        </p>
+      </button>
+
+      <div>
+        <p class="rc-projected" id="rc-projected">projected: —</p>
+        <p class="rc-disclaimer">* data-based estimate · not a guarantee</p>
       </div>
- 
-      <!-- KEYWORD CARD -->
-      <div class="stat-card">
-        <p class="stat-label">keyword</p>
-        <p class="stat-value" style="font-size:1.2rem;margin-top:0.5rem;" id="keyword-display">–</p>
-        <p style="font-family:'Space Mono',monospace;font-size:0.6rem;color:var(--muted);margin-top:6px;">
-          searched via google trends api
-        </p>
+      <!-- COMPARE BUTTON — passes keyword to /compare via sessionStorage -->
+      <button class="rc-compare-btn" id="rc-compare-btn" onclick="goToCompare()">compare with others</button>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CHART EXPAND MODAL ═══════════════════════════════════════════════════ -->
+<div class="chart-modal" id="chart-modal">
+  <div class="chart-modal-inner">
+    <button class="chart-modal-close" onclick="closeChartModal()">✕ close</button>
+    <div class="chart-modal-wrap">
+      <canvas id="chart-modal-canvas" aria-label="Trend chart expanded view"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOOKBOOK MODAL ═══════════════════════════════════════════════════════ -->
+<div class="collage-modal" id="collage-modal" role="dialog" aria-modal="true">
+  <div class="collage-backdrop" onclick="closeCollage()"></div>
+  <div class="collage-inner">
+    <div class="collage-modal-header">
+      <div>
+        <div class="collage-modal-title" id="collage-title">—</div>
+        <div class="collage-modal-sub">trend look book · scroll to explore</div>
+      </div>
+      <button class="collage-close" onclick="closeCollage()">✕ close</button>
+    </div>
+    <div style="position:relative">
+      <div class="collage-book" id="collage-book">
+        <div class="collage-photo" id="cp0"></div>
+        <div class="collage-photo" id="cp1"></div>
+        <div class="collage-photo" id="cp2"></div>
+        <div class="collage-photo" id="cp3"></div>
+        <div class="collage-photo" id="cp4"></div>
+        <div class="collage-photo" id="cp5"></div>
+        <div class="collage-photo" id="cp6"></div>
+        <div class="collage-photo" id="cp7"></div>
+      </div>
+      <div class="palette-panel" id="palette-panel"></div>
+    </div>
+    <p class="collage-caption" id="collage-caption">scroll → · images via unsplash · outfit visuals for this trend</p>
+  </div>
+</div>
+
+<!-- ══ LEARN MORE MODAL ═════════════════════════════════════════════════════ -->
+<div class="ts-modal-overlay" id="learn-modal-overlay" onclick="closeLearnMore(event)">
+  <div class="ts-modal" role="dialog" aria-modal="true" aria-label="Learn More">
+    <button class="ts-modal-close" onclick="closeLearnMore()">✕ close</button>
+
+    <div class="ts-modal-brand">thread-sight</div>
+    <div class="ts-modal-title">Learn More</div>
+
+    <p class="ts-modal-label">who i am &amp; why i made this:</p>
+    <p class="ts-modal-body">hi, my name is lindsay! i'm a computer science student passionate about the intersection of design + tech + self-expression. i created thread-sight to help people explore and understand their personal style and the world of fashion in a more accessible, tech-driven way.</p>
+
+    <hr class="ts-modal-divider"/>
+
+    <p class="ts-modal-label">tech stack used:</p>
+    <p class="ts-modal-plain" style="margin-bottom:1.25rem">
+      <strong>backend:</strong> <span class="ts-modal-accent">python · flask · pytrends · matplotlib</span><br>
+      <strong>data sources:</strong> <span class="ts-modal-accent">google trends · newsapi · pinterest</span><br>
+      <strong>frontend:</strong> <span class="ts-modal-accent">vanilla html · css · javascript</span>
+    </p>
+
+    <hr class="ts-modal-divider"/>
+
+    <p class="ts-modal-label">links:</p>
+    <p class="ts-modal-plain" style="margin-bottom:.5rem">
+      <strong>github repo:</strong>
+      <a class="ts-modal-link" href="https://www.github.com/1lindsayj" target="_blank" rel="noopener">github.com/1lindsayj</a>
+    </p>
+    <p class="ts-modal-plain" style="margin-bottom:1.5rem">
+      <strong>linkedin (connect w/ me):</strong>
+      <a class="ts-modal-link" href="https://www.linkedin.com/in/lindsay-jarrett" target="_blank" rel="noopener">linkedin.com/in/lindsay-jarrett</a>
+    </p>
+
+    <hr class="ts-modal-divider"/>
+
+    <p class="ts-modal-label">feedback?</p>
+    <p class="ts-modal-plain">i'd love to hear it! email me:
+      <a class="ts-modal-link" href="mailto:lindsay.jarrett24@gmail.com">lindsay.jarrett24@gmail.com</a>
+    </p>
+  </div>
+</div>
+
+<!-- ══ SETTINGS MODAL ═══════════════════════════════════════════════════════ -->
+<div class="ts-modal-overlay" id="settings-modal-overlay" onclick="closeSettings(event)">
+  <div class="ts-settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
+    <button class="ts-modal-close" onclick="closeSettings()">✕ close</button>
+
+    <div class="ts-modal-brand">thread-sight</div>
+    <div class="ts-modal-title">Settings</div>
+
+    <!-- appearance -->
+    <p class="ts-settings-subtitle">appearance:</p>
+    <div class="ts-toggle-group">
+      <button class="ts-toggle-btn active" id="theme-light" onclick="setTheme('light')">light</button>
+      <button class="ts-toggle-btn" id="theme-dark" onclick="setTheme('dark')">dark</button>
+    </div>
+
+    <!-- language -->
+    <p class="ts-settings-subtitle">language:</p>
+    <select class="ts-select" id="lang-select" onchange="setLanguage(this.value)">
+      <option value="en">english</option>
+      <option value="es">español</option>
+      <option value="fr">français</option>
+      <option value="de">deutsch</option>
+      <option value="it">italiano</option>
+      <option value="pt">português</option>
+      <option value="ja">日本語</option>
+      <option value="zh">中文</option>
+      <option value="ko">한국어</option>
+    </select>
+    <p style="font-family:'Space Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.35);margin-top:.4rem;letter-spacing:.04em">language translation via google translate</p>
+
+    <!-- accessibility -->
+    <p class="ts-settings-subtitle">accessibility:</p>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem">
+      <button class="ts-reduce-btn" id="reduce-motion-btn" onclick="toggleReduceMotion()">reduce motion</button>
+    </div>
+    <div style="margin-top:.5rem">
+      <p class="ts-modal-label" style="color:rgba(255,255,255,.4);margin-bottom:.3rem">adjust text size:</p>
+      <div class="ts-slider-row">
+        <span style="font-family:'Space Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.4)">A</span>
+        <input class="ts-range" type="range" min="85" max="120" value="100" step="5" id="font-size-range" oninput="setFontSize(this.value)"/>
+        <span style="font-family:'Space Mono',monospace;font-size:.9rem;color:rgba(255,255,255,.4)">A</span>
+        <span class="ts-range-val" id="font-size-val">100%</span>
       </div>
     </div>
-  </section>
- 
-  <!-- FOOTER -->
-  <footer>
-    <span>thread-sight v0.2 — phase 2 in progress</span>
-    <span>powered by google trends + pytrends</span>
-  </footer>
- 
-  <script>
-    // ── LIVE CLOCK ──
-    function updateClock() {
-      const now = new Date();
-      const opts = { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-      document.getElementById('live-datetime').textContent = now.toLocaleString('en-US', opts).toLowerCase();
-    }
-    updateClock();
-    setInterval(updateClock, 60000);
- 
-    // ── ALLOW ENTER KEY TO SUBMIT ──
-    document.getElementById('keyword-input').addEventListener('keydown', function(e) {
-      if (e.key === 'Enter') analyzeTrend();
+
+    <!-- privacy -->
+    <p class="ts-settings-subtitle">privacy:</p>
+    <p class="ts-privacy-text">this site does not collect, store, or share personal data.<br>preferences like theme and language are saved locally in your browser.</p>
+  </div>
+</div>
+
+<footer>
+  <span>thread-sight v0.2 — phase 2 in progress</span>
+  <span>powered by google trends · newsapi · pinterest</span>
+</footer>
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════════
+//  thread-sight — index.js
+// ═══════════════════════════════════════════════════════════════════════════════
+
+let _currentKeyword    = '';
+let _chartInstance     = null;
+let _modalChartInstance= null;
+let _chartData         = null;   // { labels[], values[], slope, projected_value }
+let _chartKw           = '';
+let _chartRange        = 12;
+let _reduceMotion      = false;
+
+// ── PAGE LOAD ────────────────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const ov = document.getElementById('loading-overlay');
+    ov.classList.add('hidden');
+    setTimeout(() => { ov.style.display = 'none'; }, 650);
+  }, 5000);
+  const stored = sessionStorage.getItem('search_kw');
+  if (stored) {
+    sessionStorage.removeItem('search_kw');
+    document.getElementById('keyword-input').value = stored;
+    setTimeout(() => analyzeTrend(), 5200);
+  }
+  loadSavedPrefs();
+});
+
+// ── LIVE CLOCK ───────────────────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('live-datetime').textContent =
+    new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).toLowerCase();
+}
+updateClock(); setInterval(updateClock, 60000);
+
+// ── SLIDESHOW ────────────────────────────────────────────────────────────────
+const SLIDE_KWS = ['quiet luxury','gorpcore','coastal prep','coquette','y2k revival'];
+let sIdx = 0, sTimer = null;
+const slides = document.querySelectorAll('.slide');
+const dots   = document.querySelectorAll('.slide-dot');
+function goToSlide(n) {
+  slides[sIdx].classList.remove('active'); dots[sIdx].classList.remove('active');
+  sIdx = ((n % slides.length) + slides.length) % slides.length;
+  slides[sIdx].classList.add('active'); dots[sIdx].classList.add('active');
+}
+function startSlideshow() { if (!sTimer) sTimer = setInterval(() => goToSlide(sIdx+1), 3000); }
+function stopSlideshow()  { clearInterval(sTimer); sTimer = null; }
+function analyzeFromSlide() { document.getElementById('keyword-input').value = SLIDE_KWS[sIdx]; analyzeTrend(); }
+function switchToChart() {
+  document.getElementById('slideshow').style.display = 'none';
+  document.getElementById('slide-dots').style.display = 'none';
+  document.getElementById('chart-container').classList.add('visible');
+  const ps = document.getElementById('panel-stats');
+  ps.style.display = 'flex'; ps.style.flexDirection = 'column';
+  stopSlideshow();
+}
+startSlideshow();
+
+// ── INPUT VALIDATION ─────────────────────────────────────────────────────────
+const ALLOWED = /^[a-zA-Z0-9 \-'&]+$/;
+function sanitize(s) { return s.replace(/<[^>]*>/g,'').trim().replace(/\s+/g,' '); }
+function validate(raw) {
+  const c = sanitize(raw);
+  if (!c)           return { ok:false, msg:'please enter a keyword.' };
+  if (c.length < 2) return { ok:false, msg:'keyword too short (min 2 chars).' };
+  if (c.length > 80)return { ok:false, msg:'keyword too long (max 80 chars).' };
+  if (!ALLOWED.test(c)) return { ok:false, msg:'only letters, numbers, spaces, and hyphens allowed.' };
+  return { ok:true, value:c };
+}
+function showInputErr(msg) { const e=document.getElementById('input-error'); e.textContent=msg; e.classList.add('visible'); document.getElementById('keyword-input').classList.add('invalid'); }
+function clearInputErr()   { document.getElementById('input-error').classList.remove('visible'); document.getElementById('keyword-input').classList.remove('invalid'); }
+document.getElementById('keyword-input').addEventListener('input', clearInputErr);
+document.getElementById('keyword-input').addEventListener('keydown', e => { if (e.key==='Enter') analyzeTrend(); });
+
+// ── RATE LIMITING ─────────────────────────────────────────────────────────────
+const RATE = 5, WIN = 60000; let stamps = [];
+function checkRate() {
+  const now = Date.now(); stamps = stamps.filter(t => now-t < WIN);
+  if (stamps.length >= RATE) { showRateWarn(`too many searches. try again in ${Math.ceil((WIN-(now-stamps[0]))/1000)}s.`); return false; }
+  hideRateWarn(); return true;
+}
+function recordSearch() { stamps.push(Date.now()); }
+function showRateWarn(msg) { const e=document.getElementById('rate-warning'); e.textContent=msg; e.classList.add('visible'); }
+function hideRateWarn()    { document.getElementById('rate-warning').classList.remove('visible'); }
+
+// ── ANALYZE ──────────────────────────────────────────────────────────────────
+async function analyzeTrend() {
+  const v = validate(document.getElementById('keyword-input').value);
+  if (!v.ok) { showInputErr(v.msg); return; }
+  if (!checkRate()) return;
+  recordSearch(); clearInputErr(); hideRateWarn();
+  setFetchLoading(true); hideResults(); hideError();
+  try {
+    const resp = await fetch('/analyze', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ keyword: v.value })
     });
- 
-    // ── MAIN ANALYZE FUNCTION ──
-    // this calls the /analyze route we built in app.py
-    // it sends the keyword as JSON and gets back growth, status, and a chart image
-    async function analyzeTrend() {
-      const keyword = document.getElementById('keyword-input').value.trim();
-      if (!keyword) return;
- 
-      // reset UI state
-      setLoading(true);
-      hideResults();
-      hideError();
-      resetChart();
- 
-      try {
-        // POST request to our Flask backend — this is how the frontend talks to Python
-        const response = await fetch('/analyze', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ keyword })
-          // JSON.stringify turns the JS object into a string Flask can read
-        });
- 
-        const data = await response.json();
- 
-        if (!response.ok) {
-          // Flask returned an error (like no data found)
-          showError(data.error || 'something went wrong.');
-          return;
+    const data = await resp.json();
+    if (resp.status === 429) { showRateWarn(data.error || 'rate limit reached.'); return; }
+    if (!resp.ok)            { showError(data.error || 'something went wrong.'); return; }
+    _currentKeyword = v.value;
+    displayResults(data);
+  } catch(e) {
+    showError('could not connect to server. make sure app.py is running.');
+  } finally {
+    setFetchLoading(false);
+  }
+}
+
+// ── COMPARE BUTTON ────────────────────────────────────────────────────────────
+function goToCompare() {
+  if (_currentKeyword) sessionStorage.setItem('compare_kw', _currentKeyword);
+  window.location.href = '/compare';
+}
+
+// ── DISPLAY RESULTS ──────────────────────────────────────────────────────────
+function displayResults(data) {
+  switchToChart();
+  const kw     = data.keyword       || '—';
+  const status = data.status        || 'stable';
+  const peak   = data.peak_interest ?? 0;
+  const growth = data.growth        ?? 0;
+
+  // hero panel mini stats
+  if (data.chart) document.getElementById('chart-img').src = 'data:image/png;base64,' + data.chart;
+  document.getElementById('panel-keyword').textContent = kw;
+  document.getElementById('panel-score').textContent   = peak;
+  document.getElementById('panel-status').textContent  = status;
+
+  document.getElementById('rc-kw-title').textContent = kw.toUpperCase();
+
+  // ── Interactive Chart ────────────────────────────────────────────────────
+  if (data.chart_data && data.chart_data.labels && data.chart_data.labels.length) {
+    _chartData = data.chart_data;
+    _chartKw   = kw;
+    _chartRange = 12;
+    document.querySelectorAll('.rc-chart-range-btn').forEach((b,i) => b.classList.toggle('active', i===1));
+    renderChart(kw, status);
+  } else if (data.chart) {
+    // fallback: show the server-rendered png in an <img> inside the canvas wrapper
+    const wrap = document.querySelector('.rc-chart-wrap');
+    wrap.innerHTML = `<img src="data:image/png;base64,${data.chart}" style="width:100%;height:100%;object-fit:contain" alt="trend chart"/>`;
+  }
+
+  // status badge
+  const sv = document.getElementById('rc-status-val');
+  sv.textContent = status; sv.className = 'rc-status-val ' + status;
+
+  // explanation
+  const pct = Math.abs(growth);
+  let ex = '';
+  if (status === 'rising')
+    ex = `this means <em>${esc(kw)}</em> is making waves and has peaked the interest of <em>${pct}%</em> more people this year than before. maybe <em>${esc(kw)}</em> is in for the season!`;
+  else if (status === 'fading')
+    ex = `this means <em>${esc(kw)}</em> is starting to fall off and lose the popularity it once had. <em>${pct}%</em> fewer people have interest in <em>${esc(kw)}</em> than 6 months ago. perhaps <em>${esc(kw)}</em> is sunsetting for this season.`;
+  else
+    ex = `this means <em>${esc(kw)}</em> is very consistent and in its calm era for now. <em>${peak}</em>/100 people still like this trend, similar to interest 6 months ago. seems like <em>${esc(kw)}</em> is doing well.`;
+  document.getElementById('rc-explain').innerHTML = ex;
+
+  document.getElementById('rc-history').textContent = buildHistory(kw);
+
+  const news = (data.news || []).filter(n => n.title && !n.title.startsWith('add NEWS'));
+  document.getElementById('rc-media-num').textContent = news.length;
+  const sl = document.getElementById('rc-sources-list');
+  sl.innerHTML = news.length === 0
+    ? '<p style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:var(--muted)">no articles found — add NewsAPI key to .env</p>'
+    : news.slice(0,5).map(n =>
+        `<a class="rc-source-link" href="${esc(n.url||'#')}" target="_blank" rel="noopener noreferrer">
+          <span class="rc-source-pub">${esc(n.source)} · ${esc(n.published_at||'')}</span>${esc(n.title)}
+        </a>`).join('');
+
+  document.getElementById('rc-projected').innerHTML =
+    '<strong>projected:</strong> ' + (data.projected_label || 'data unavailable');
+
+  buildLookbook(kw);
+  document.getElementById('collage-title').textContent = kw;
+
+  const rs = document.getElementById('results-section');
+  rs.style.display = 'block';
+  requestAnimationFrame(() => rs.classList.add('visible'));
+  rs.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── INTERACTIVE CHART.JS ──────────────────────────────────────────────────────
+function getChartColors(status) {
+  if (status === 'fading') return { line:'#e05a5a', fill:'rgba(224,90,90,0.08)', point:'#e05a5a' };
+  return { line:'#00BFA6', fill:'rgba(0,191,166,0.08)', point:'#00BFA6' };
+}
+
+function buildChartConfig(labels, values, kw, status, expanded) {
+  const c = getChartColors(status);
+  return {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: kw,
+        data: values,
+        borderColor: c.line,
+        backgroundColor: c.fill,
+        borderWidth: expanded ? 2.5 : 1.8,
+        pointRadius: expanded ? 3 : 2,
+        pointHoverRadius: 7,
+        pointBackgroundColor: c.point,
+        pointBorderColor: '#fff',
+        pointBorderWidth: 1.5,
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: c.line,
+        pointHoverBorderWidth: 2,
+        fill: true,
+        tension: 0.35,
+        spanGaps: true,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      animation: { duration: _reduceMotion ? 0 : 600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          enabled: true,
+          backgroundColor: '#111',
+          titleColor: c.line,
+          bodyColor: '#fff',
+          footerColor: 'rgba(255,255,255,0.4)',
+          borderColor: '#333',
+          borderWidth: 1,
+          padding: 12,
+          caretSize: 6,
+          titleFont: { family: "'Space Mono', monospace", size: 10, weight: 'bold' },
+          bodyFont:  { family: "'Space Mono', monospace", size: 12 },
+          footerFont:{ family: "'Space Mono', monospace", size: 9 },
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => `  interest: ${ctx.parsed.y}/100`,
+            footer: ctx => {
+              const i = ctx[0].dataIndex;
+              const vals = ctx[0].dataset.data;
+              if (i > 0) {
+                const diff = ctx[0].parsed.y - vals[i-1];
+                return diff > 0 ? `  ↑ +${diff.toFixed(1)} from prev week` : diff < 0 ? `  ↓ ${diff.toFixed(1)} from prev week` : `  → no change`;
+              }
+              return '';
+            }
+          }
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { color: '#ddd' },
+          ticks: {
+            font: { family: "'Space Mono', monospace", size: expanded ? 9 : 8 },
+            color: '#888',
+            maxTicksLimit: expanded ? 13 : 7,
+            maxRotation: 0,
+          }
+        },
+        y: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(0,0,0,0.04)' },
+          border: { display: false },
+          ticks: {
+            font: { family: "'Space Mono', monospace", size: expanded ? 9 : 8 },
+            color: '#888',
+            stepSize: 25,
+            callback: v => v === 0 ? '0' : v === 100 ? '100' : String(v),
+          }
         }
- 
-        // show the results
-        displayResults(data);
- 
-      } catch (err) {
-        // network error or Flask is not running
-        showError('could not connect to server. make sure app.py is running.');
-      } finally {
-        setLoading(false);
+      },
+      onHover: (event, elements) => {
+        event.native.target.style.cursor = elements.length ? 'crosshair' : 'default';
       }
     }
- 
-    function displayResults(data) {
-      // populate stat cards
-      document.getElementById('results-keyword').textContent = `"${data.keyword}"`;
-      document.getElementById('keyword-display').textContent = data.keyword;
-      document.getElementById('growth-value').textContent =
-        (data.growth >= 0 ? '+' : '') + data.growth + '%';
- 
-      // status badge — add a class to color it correctly
-      const badge = document.getElementById('status-badge');
-      badge.textContent = data.status;
-      badge.className = 'status-badge'; // reset
-      if (data.status === 'rising') badge.classList.add('rising');
-      else if (data.status === 'fading') badge.classList.add('fading');
-      else badge.classList.add('stable');
- 
-      // show the chart — Flask returned a base64 string, we embed it as an image
-      if (data.chart) {
-        const img = document.getElementById('chart-img');
-        img.src = 'data:image/png;base64,' + data.chart;
-        img.style.display = 'block';
-        document.getElementById('chart-placeholder').style.display = 'none';
-      }
- 
-      // show results section
-      document.getElementById('results-section').classList.add('visible');
-    }
- 
-    // ── HELPERS ──
-    function setLoading(on) {
-      document.getElementById('loading').classList.toggle('visible', on);
-      document.getElementById('analyze-btn').disabled = on;
-    }
- 
-    function hideResults() {
-      document.getElementById('results-section').classList.remove('visible');
-    }
- 
-    function hideError() {
-      document.getElementById('error-msg').classList.remove('visible');
-    }
- 
-    function showError(msg) {
-      const el = document.getElementById('error-msg');
-      document.getElementById('error-text').textContent = msg;
-      el.classList.add('visible');
-    }
- 
-    function resetChart() {
-      document.getElementById('chart-img').style.display = 'none';
-      document.getElementById('chart-placeholder').style.display = 'block';
-    }
- 
-    function scrollToResults() {
-      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth' });
-    }
-  </script>
+  };
+}
+
+function renderChart(kw, status) {
+  if (!_chartData) return;
+  const n = _chartData.labels.length;
+  const cutoff = _chartRange === 3 ? Math.max(0, n - 13) : 0;
+  const labels = _chartData.labels.slice(cutoff);
+  const values = _chartData.values.slice(cutoff);
+
+  const canvas = document.getElementById('rc-chart-canvas');
+  if (!canvas) return;
+  if (_chartInstance) { _chartInstance.destroy(); _chartInstance = null; }
+  _chartInstance = new Chart(canvas, buildChartConfig(labels, values, kw, status || 'stable', false));
+
+  // stats strip
+  const avg   = (values.reduce((a,b)=>a+b,0)/values.length).toFixed(0);
+  const mx    = Math.max(...values);
+  const mn    = Math.min(...values);
+  const slope = _chartData.slope;
+  const slopeClass = slope > 0.3 ? 'rising' : slope < -0.3 ? 'fading' : '';
+  const slopeTxt   = slope > 0.3 ? '↑ trending up' : slope < -0.3 ? '↓ trending down' : '→ holding steady';
+  const statsEl = document.getElementById('rc-chart-stats');
+  if (statsEl) statsEl.innerHTML = `
+    <span class="rc-chart-stat">avg: <strong>${avg}/100</strong></span>
+    <span class="rc-chart-stat">peak: <strong>${mx}/100</strong></span>
+    <span class="rc-chart-stat">low: <strong>${mn}/100</strong></span>
+    <span class="rc-chart-stat ${slopeClass}">momentum: <strong>${slopeTxt}</strong></span>
+    <span class="rc-chart-stat">4-week projection: <strong>~${_chartData.projected_value}/100</strong></span>
+  `;
+}
+
+function setChartRange(months, btn) {
+  _chartRange = months;
+  document.querySelectorAll('.rc-chart-range-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const status = document.getElementById('rc-status-val')?.textContent?.toLowerCase() || 'stable';
+  renderChart(_chartKw, status);
+}
+
+// ── CHART EXPAND MODAL ────────────────────────────────────────────────────────
+function openChartModal() {
+  if (!_chartData) return;
+  document.getElementById('chart-modal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => {
+    const canvas = document.getElementById('chart-modal-canvas');
+    if (!canvas) return;
+    if (_modalChartInstance) { _modalChartInstance.destroy(); _modalChartInstance = null; }
+    const status = document.getElementById('rc-status-val')?.textContent?.toLowerCase() || 'stable';
+    _modalChartInstance = new Chart(canvas, buildChartConfig(_chartData.labels, _chartData.values, _chartKw, status, true));
+  }, 80);
+}
+function closeChartModal() {
+  document.getElementById('chart-modal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── LOOKBOOK ─────────────────────────────────────────────────────────────────
+const UNSPLASH_QUERIES = {
+  'quiet luxury': ['quiet+luxury+outfit','neutral+tones+fashion','minimalist+wardrobe','linen+fashion','old+money+style'],
+  'gorpcore':     ['gorpcore+fashion','outdoor+streetwear','hiking+outfit+style','fleece+fashion','trail+style'],
+  'y2k revival':  ['y2k+fashion','early+2000s+style','low+rise+jeans+outfit','velour+tracksuit','butterfly+fashion'],
+  'coquette':     ['coquette+aesthetic','ballet+fashion','bow+outfit','feminine+soft+style','pink+ribbon+fashion'],
+  'dark academia':['dark+academia+fashion','tweed+outfit','plaid+academic+style','turtleneck+fashion','gothic+preppy'],
+  'coastal prep': ['coastal+preppy+outfit','nautical+fashion','linen+summer+style','boat+shoe+outfit','navy+stripe'],
+  'streetwear':   ['streetwear+outfit','urban+fashion','sneaker+style','oversized+fashion','hypebeast+style'],
+  'cottagecore':  ['cottagecore+outfit','floral+dress+fashion','linen+pastoral+style','fairy+fashion','cottage+aesthetic'],
+  'barbiecore':   ['barbiecore+outfit','pink+fashion+style','hot+pink+aesthetic','barbie+fashion','maximalist+pink'],
+  'minimalist':   ['minimalist+fashion','clean+aesthetic+outfit','capsule+wardrobe','monochrome+style','simple+chic'],
+};
+function getQueries(kw) {
+  const kl = kw.toLowerCase();
+  for (const [k,v] of Object.entries(UNSPLASH_QUERIES)) {
+    if (kl.includes(k) || k.includes(kl)) return v;
+  }
+  return [`${kw.replace(/ /g,'+')}+fashion+outfit`, `${kw.replace(/ /g,'+')}+style`, `${kw.replace(/ /g,'+')}+aesthetic`, `fashion+trend`, `outfit+style`];
+}
+
+function buildLookbook(kw) {
+  const queries = getQueries(kw);
+  const palette = getPalette(kw);
+
+  // Use Unsplash with a timestamp salt to bypass any caching/rate issues
+  // Each image gets a different query and unique random seed
+  const salt = Math.floor(Math.random() * 10000);
+
+  for (let i = 0; i < 5; i++) {
+    const q = queries[i % queries.length];
+    const el = document.getElementById('cf' + i);
+    if (!el) continue;
+    // Reset first so user sees a loading state rather than stale image
+    el.style.backgroundImage = `linear-gradient(135deg, ${palette[i % palette.length]}, ${palette[(i+2) % palette.length]})`;
+
+    const url = `https://source.unsplash.com/300x400/?${q}&sig=${salt + i}`;
+    const img = new Image();
+    img.onload = () => {
+      el.style.backgroundImage = `url('${img.src}')`;
+      el.style.backgroundSize  = 'cover';
+      el.style.backgroundPosition = 'center';
+    };
+    img.onerror = () => {
+      // Keep the gradient fallback — already set above
+    };
+    img.src = url;
+  }
+
+  for (let i = 0; i < 8; i++) {
+    const q = queries[i % queries.length];
+    const ph = document.getElementById('cp' + i);
+    if (!ph) continue;
+    ph.style.background = `linear-gradient(135deg, ${palette[i % palette.length]}, ${palette[(i+1) % palette.length]})`;
+
+    const url = `https://source.unsplash.com/400x600/?${q}&sig=${salt + i + 20}`;
+    const img2 = new Image();
+    img2.onload = () => {
+      ph.style.backgroundImage = `url('${img2.src}')`;
+      ph.style.backgroundSize  = 'cover';
+      ph.style.backgroundPosition = 'center';
+    };
+    img2.src = url;
+  }
+
+  // palette chips
+  const pp = document.getElementById('palette-panel');
+  if (pp) pp.innerHTML = palette.map(hex =>
+    `<div class="palette-chip" style="background:${hex}" data-hex="${hex}" title="${hex}"></div>`
+  ).join('');
+  const cap = document.getElementById('collage-caption');
+  if (cap) cap.textContent = `scroll → · "${kw}" look book · images via unsplash`;
+}
+
+function openCollage()  { document.getElementById('collage-modal').classList.add('open');    document.body.style.overflow = 'hidden'; }
+function closeCollage() { document.getElementById('collage-modal').classList.remove('open'); document.body.style.overflow = ''; }
+
+// ── LEARN MORE MODAL ──────────────────────────────────────────────────────────
+function openLearnMore() {
+  document.getElementById('learn-modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeLearnMore(e) {
+  if (e && e.target !== document.getElementById('learn-modal-overlay')) return;
+  document.getElementById('learn-modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── SETTINGS MODAL ────────────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('settings-modal-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeSettings(e) {
+  if (e && e.target !== document.getElementById('settings-modal-overlay')) return;
+  document.getElementById('settings-modal-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+// ── SETTINGS: THEME ───────────────────────────────────────────────────────────
+function setTheme(t) {
+  localStorage.setItem('ts_theme', t);
+  document.getElementById('theme-light').classList.toggle('active', t === 'light');
+  document.getElementById('theme-dark').classList.toggle('active', t === 'dark');
+  applyTheme(t);
+}
+
+function applyTheme(t) {
+  if (t === 'dark') {
+    document.documentElement.style.setProperty('--white',   '#0f0f0f');
+    document.documentElement.style.setProperty('--black',   '#f0f0f0');
+    document.documentElement.style.setProperty('--bg',      '#1a1a1a');
+    document.documentElement.style.setProperty('--border',  '#333');
+    document.documentElement.style.setProperty('--muted',   '#888');
+    document.body.style.background = '#0f0f0f';
+    document.body.style.color      = '#f0f0f0';
+  } else {
+    document.documentElement.style.setProperty('--white',   '#fff');
+    document.documentElement.style.setProperty('--black',   '#000');
+    document.documentElement.style.setProperty('--bg',      '#f7f7f7');
+    document.documentElement.style.setProperty('--border',  '#ddd');
+    document.documentElement.style.setProperty('--muted',   '#666');
+    document.body.style.background = '#fff';
+    document.body.style.color      = '#000';
+  }
+  // Re-render chart with updated colors if data is loaded
+  if (_chartInstance && _chartData) {
+    const status = document.getElementById('rc-status-val')?.textContent?.toLowerCase() || 'stable';
+    renderChart(_chartKw, status);
+  }
+}
+
+// ── SETTINGS: LANGUAGE ────────────────────────────────────────────────────────
+function setLanguage(lang) {
+  localStorage.setItem('ts_lang', lang);
+  if (lang === 'en') {
+    const el = document.getElementById('google-translate-el');
+    if (el) el.remove();
+    return;
+  }
+  if (!document.getElementById('google-translate-el')) {
+    const div = document.createElement('div');
+    div.id = 'google-translate-el';
+    div.style.display = 'none';
+    document.body.appendChild(div);
+  }
+  if (!document.getElementById('gt-script')) {
+    window.gtInit = function() {
+      new google.translate.TranslateElement(
+        { pageLanguage:'en', includedLanguages: lang, autoDisplay: true },
+        'google-translate-el'
+      );
+    };
+    const s = document.createElement('script');
+    s.id = 'gt-script';
+    s.src = '//translate.google.com/translate_a/element.js?cb=gtInit';
+    document.head.appendChild(s);
+  }
+}
+
+// ── SETTINGS: REDUCE MOTION ───────────────────────────────────────────────────
+function toggleReduceMotion() {
+  _reduceMotion = !_reduceMotion;
+  localStorage.setItem('ts_reduce_motion', _reduceMotion);
+  document.getElementById('reduce-motion-btn').classList.toggle('active', _reduceMotion);
+  applyReduceMotion(_reduceMotion);
+}
+function applyReduceMotion(on) {
+  const style = on ? 'animation-duration:0s!important;transition:none!important' : '';
+  let tag = document.getElementById('ts-reduce-motion-style');
+  if (!tag) { tag = document.createElement('style'); tag.id = 'ts-reduce-motion-style'; document.head.appendChild(tag); }
+  tag.textContent = on ? '*, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }' : '';
+}
+
+// ── SETTINGS: FONT SIZE ───────────────────────────────────────────────────────
+function setFontSize(val) {
+  document.documentElement.style.fontSize = val + '%';
+  const el = document.getElementById('font-size-val');
+  if (el) el.textContent = val + '%';
+  localStorage.setItem('ts_font_size', val);
+}
+
+// ── LOAD SAVED PREFS (runs on every page load) ────────────────────────────────
+function loadSavedPrefs() {
+  // Theme
+  const theme = localStorage.getItem('ts_theme') || 'light';
+  const tl = document.getElementById('theme-light');
+  const td = document.getElementById('theme-dark');
+  if (tl) tl.classList.toggle('active', theme === 'light');
+  if (td) td.classList.toggle('active', theme === 'dark');
+  applyTheme(theme);
+
+  // Font size
+  const fs = localStorage.getItem('ts_font_size');
+  if (fs) {
+    const rng = document.getElementById('font-size-range');
+    if (rng) rng.value = fs;
+    setFontSize(fs);
+  }
+
+  // Reduce motion
+  const rm = localStorage.getItem('ts_reduce_motion') === 'true';
+  _reduceMotion = rm;
+  const rmBtn = document.getElementById('reduce-motion-btn');
+  if (rmBtn) rmBtn.classList.toggle('active', rm);
+  if (rm) applyReduceMotion(true);
+
+  // Language
+  const lang = localStorage.getItem('ts_lang');
+  if (lang) {
+    const sel = document.getElementById('lang-select');
+    if (sel) sel.value = lang;
+    if (lang !== 'en') setLanguage(lang);
+  }
+}
+
+// ── HISTORY BLURBS ───────────────────────────────────────────────────────────
+const HISTORY = {
+  'quiet luxury': '"quiet luxury" emerged ~2022 as a reaction to logo-heavy fashion — neutral palettes, quality fabrics, minimal branding. think the row, loro piana, bottega veneta.',
+  'gorpcore':     'gorpcore (gear + outdoor) peaked ~2021, blending technical hiking gear with everyday fashion. fleeces, trail runners, shell jackets went from trails to city streets.',
+  'y2k revival':  'y2k references late 1990s–early 2000s fashion — low-rise jeans, butterfly clips, velour tracksuits, brash branding. revived around 2020–2022 via tiktok.',
+  'coquette':     'coquette draws from ballet, bows, and soft femininity — sheer fabrics, ribbons, pastels. went viral on tiktok ~2022–2023 as "balletcore" exploded.',
+  'dark academia':'dark academia blends preppy academics with gothic, literary references — tweed, plaid, turtlenecks. massive aesthetic on tumblr and tiktok in 2020.',
+  'coastal prep': 'coastal prep references old-money east-coast americana — linen, navy stripes, boat shoes. intersects with "coastal grandmother" and nautical aesthetics.',
+  'streetwear':   'streetwear traces to 1980s skate and hip-hop culture. codified by supreme, stüssy, and off-white. dominant luxury force by the 2010s.',
+  'cottagecore':  'cottagecore romanticizes rural life — linen, florals, handcraft. surged in 2020 during the pandemic as people sought soft, escapist aesthetics.',
+  'barbiecore':   "barbiecore is maximalist hot-pink inspired by barbie's world. exploded globally around the 2023 barbie film directed by greta gerwig.",
+  'minimalist':   'fashion minimalism — clean lines, neutral tones, quality over quantity — traces back to calvin klein and jil sander in the 1990s.',
+};
+function buildHistory(kw) {
+  const kl = kw.toLowerCase().trim();
+  for (const [k,v] of Object.entries(HISTORY)) {
+    if (kl.includes(k) || k.includes(kl)) return v;
+  }
+  return `"${kw}" is a fashion keyword tracked across google trends, newsapi, and pinterest. search interest reflects real-time cultural momentum in apparel, styling, and editorial coverage.`;
+}
+
+// ── COLOUR PALETTES ──────────────────────────────────────────────────────────
+const PALETTES = {
+  'quiet luxury': ['#e8e0d5','#c9bfb0','#8a7d6e','#4a3f35','#d4c9bc','#f0ebe4'],
+  'y2k revival':  ['#ff69b4','#7df9ff','#ff1493','#bfff00','#da70d6','#00cfff'],
+  'gorpcore':     ['#4a6741','#8b7355','#2c3e2d','#c4a882','#5d7a5a','#3d2b1f'],
+  'coquette':     ['#f4c2c2','#e8b4cb','#d4a5c4','#f0d6e8','#c8a0c4','#fce4ec'],
+  'coastal prep': ['#1a3a5c','#c8b89a','#4a7c99','#e8f4f8','#8bb8c8','#ffffff'],
+  'streetwear':   ['#1a1a1a','#ffffff','#c8392b','#2980b9','#f39c12','#2c2c2c'],
+  'minimalist':   ['#f5f5f0','#d0cfc8','#8a8880','#3a3830','#e8e7e2','#bfbdb8'],
+  'dark academia':['#3d2b1f','#6b4c35','#c4a882','#2c1810','#8b6914','#4a3525'],
+  'cottagecore':  ['#7ab648','#d4b896','#e8c4a0','#5a8a3c','#f0e0c0','#8b6914'],
+  'barbiecore':   ['#ff69b4','#ff1493','#ff85c2','#ff4da6','#ff99cc','#cc0066'],
+};
+function getPalette(kw) {
+  const kl = kw.toLowerCase();
+  for (const [k,v] of Object.entries(PALETTES)) {
+    if (kl.includes(k) || k.includes(kl)) return v;
+  }
+  return ['#00BFA6','#009c87','#007A6B','#004d42','#00e5cc','#002e29'];
+}
+
+// ── KEYBOARD ESC ──────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeCollage(); closeChartModal();
+    document.getElementById('learn-modal-overlay')?.classList.remove('open');
+    document.getElementById('settings-modal-overlay')?.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+});
+
+// ── HTML ESCAPE ───────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function setFetchLoading(on) {
+  document.getElementById('fetch-loading').style.display = on ? 'block' : 'none';
+  document.getElementById('analyze-btn').disabled = on;
+}
+function hideResults() {
+  const rs = document.getElementById('results-section');
+  if (_chartInstance) { _chartInstance.destroy(); _chartInstance = null; }
+  rs.classList.remove('visible'); rs.style.display = 'none';
+  _chartData = null;
+}
+function hideError()    { document.getElementById('error-msg')?.classList.remove('visible'); }
+function showError(msg) { const e=document.getElementById('error-text'); if(e) e.textContent=msg; document.getElementById('error-msg')?.classList.add('visible'); }
+</script>
 </body>
 </html>

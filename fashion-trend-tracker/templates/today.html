@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>thread-sight · today's report</title>
+  <link rel="icon" type="image/png" href="/static/threadsighticon.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--cyan:#00BFA6;--cyan-dk:#009c87;--black:#000;--white:#fff;--muted:#666;--border:#ddd;--bg:#f7f7f7}
+    html{scroll-behavior:smooth}
+    body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black);min-height:100vh}
+
+    /* ─── LOADING OVERLAY ─────────────────────────────────────────────────── */
+    #loading-overlay{position:fixed;inset:0;z-index:9999;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2rem;transition:opacity 0.6s ease}
+    #loading-overlay.hidden{opacity:0;pointer-events:none}
+    .file-stack{position:relative;width:180px;height:220px}
+    .file{position:absolute;bottom:0;left:50%;width:140px;height:180px;border-radius:4px 4px 2px 2px;transform-origin:bottom center;transform:translateX(-50%)}
+    .file-1{background:#E8603C;z-index:1;animation:shuffle1 1.4s ease-in-out infinite alternate}
+    .file-2{background:#1B3A8C;z-index:2;animation:shuffle2 1.4s ease-in-out infinite alternate}
+    .file-3{background:#00BFA6;z-index:3;animation:shuffle3 1.4s ease-in-out infinite alternate}
+    .file-4{background:#E8C4C0;z-index:4;animation:shuffle4 1.4s ease-in-out infinite alternate}
+    .file-5{background:#2c2c2c;z-index:5;animation:shuffle5 1.4s ease-in-out infinite alternate}
+    .file::before,.file::after{content:'';position:absolute;left:14px;right:14px;height:2px;background:rgba(255,255,255,0.2);border-radius:1px}
+    .file::before{top:28px}.file::after{top:40px;width:60%;right:auto}
+    .file-tab{position:absolute;top:-10px;left:12px;width:40px;height:12px;border-radius:3px 3px 0 0;background:inherit;filter:brightness(1.2)}
+    .file-lines{position:absolute;top:56px;left:14px;right:14px;display:flex;flex-direction:column;gap:6px}
+    .file-line{height:2px;background:rgba(255,255,255,0.15);border-radius:1px}
+    .file-line:nth-child(even){width:70%}.file-line:nth-child(3){width:85%}
+    @keyframes shuffle1{0%{transform:translateX(-50%) rotate(-6deg) translateY(10px)}100%{transform:translateX(-50%) rotate(-3deg) translateY(0)}}
+    @keyframes shuffle2{0%{transform:translateX(-50%) rotate(-2deg) translateY(8px)}100%{transform:translateX(-50%) rotate(1deg) translateY(-4px)}}
+    @keyframes shuffle3{0%{transform:translateX(-50%) rotate(1deg) translateY(6px)}100%{transform:translateX(-50%) rotate(-1deg) translateY(-8px)}}
+    @keyframes shuffle4{0%{transform:translateX(-50%) rotate(3deg) translateY(4px)}100%{transform:translateX(-50%) rotate(5deg) translateY(-12px)}}
+    @keyframes shuffle5{0%{transform:translateX(-50%) rotate(6deg) translateY(2px)}100%{transform:translateX(-50%) rotate(3deg) translateY(-16px)}}
+    .loading-label{font-family:'Space Mono',monospace;font-size:.7rem;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+    .loading-dots span{animation:blink 1.2s step-start infinite}
+    .loading-dots span:nth-child(2){animation-delay:.2s}.loading-dots span:nth-child(3){animation-delay:.4s}
+    @keyframes blink{0%,100%{opacity:0}50%{opacity:1}}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-sub{font-family:'Playfair Display',serif;font-style:italic;font-size:.85rem;color:#bbb}
+
+    /* ─── NAVBAR ──────────────────────────────────────────────────────────── */
+    nav{
+      display:grid;
+      grid-template-columns:1fr auto 1fr;
+      align-items:center;
+      padding:1rem 2.5rem;
+      border-bottom:2px solid var(--black);
+      background:var(--white);
+      position:sticky;top:0;z-index:200;
+      gap:1rem;
+    }
+    .nav-left{display:flex;flex-direction:column;font-family:'Space Mono',monospace;font-size:0.65rem;color:var(--muted);gap:6px;justify-self:start}
+    .nav-logo{font-family:'Playfair Display',serif;font-size:1.85rem;font-style:italic;font-weight:400;letter-spacing:-.03em;color:var(--black);text-decoration:none;justify-self:center;white-space:nowrap}
+    .nav-right{display:flex;gap:.6rem;justify-self:end;align-items:center}
+    .nav-btn{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;padding:6px 14px;background:var(--black);color:var(--white);border:none;cursor:pointer;letter-spacing:.05em;text-transform:lowercase;transition:background .15s;text-decoration:none;display:inline-block;white-space:nowrap}
+    .nav-btn:hover{background:#222}
+    .nav-search-wrap{display:flex;align-items:center;border:1.5px solid var(--black);overflow:hidden;height:30px}
+    .nav-search-input{font-family:'Space Mono',monospace;font-size:.62rem;padding:0 10px;border:none;outline:none;background:var(--white);color:var(--black);width:160px;height:100%}
+    .nav-search-input::placeholder{color:var(--muted)}
+    .nav-search-btn{background:var(--black);color:var(--white);border:none;cursor:pointer;padding:0 10px;height:100%;font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;transition:background .15s}
+    .nav-search-btn:hover{background:#222}
+
+    /* ─── TICKER ──────────────────────────────────────────────────────────── */
+    .ticker-bar{background:var(--black);color:var(--white);font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.08em;text-transform:uppercase;padding:5px 0;overflow:hidden;white-space:nowrap}
+    .ticker-track{display:inline-block;animation:ticker 28s linear infinite}
+    .ticker-track span{margin-right:4rem}
+    .ticker-dot{color:var(--cyan);margin-right:.4rem}
+    @keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+    /* ─── PAGE HEADER ─────────────────────────────────────────────────────── */
+    .page-header{padding:2rem 2.5rem 1.5rem;border-bottom:2px solid var(--black)}
+    .page-header-eyebrow{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--cyan);margin-bottom:.5rem}
+    .page-header-title{font-family:'Space Mono',monospace;font-size:clamp(2rem,5vw,3.5rem);font-weight:700;letter-spacing:.04em;text-transform:uppercase;line-height:1}
+    .page-header-date{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--muted);margin-top:.5rem}
+
+    /* ─── GRID LAYOUT ─────────────────────────────────────────────────────── */
+    .today-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto;gap:0;border-bottom:1px solid var(--border)}
+    .grid-cell{border-right:1px solid var(--border);border-bottom:1px solid var(--border);padding:1.75rem 2rem}
+    .grid-cell:nth-child(even){border-right:none}
+
+    /* ─── TREND OF THE DAY ────────────────────────────────────────────────── */
+    .totd-cell{grid-row:1/2;display:flex;flex-direction:column;gap:1.25rem}
+    .cell-label{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:.5rem}
+    .totd-name{font-family:'Playfair Display',serif;font-style:italic;font-size:2rem;line-height:1.1;color:var(--black)}
+    .totd-status-row{display:flex;align-items:center;gap:.75rem}
+    .status-badge{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 14px}
+    .status-badge.rising{background:#d4f5ed;color:#006b55}
+    .status-badge.fading{background:#fde8e8;color:#8b1c1c}
+    .status-badge.stable{background:#ebebeb;color:#444}
+    .totd-img-box{width:100%;aspect-ratio:4/3;background:linear-gradient(135deg,#00BFA6,#004d42);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+    .totd-img-box img{width:100%;height:100%;object-fit:cover;display:none}
+    .totd-img-placeholder{font-family:'Space Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase;text-align:center}
+    .details-btn{display:inline-block;font-family:'Space Mono',monospace;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:lowercase;padding:10px 22px;background:var(--cyan);color:var(--white);border:none;cursor:pointer;transition:background .15s;align-self:flex-start}
+    .details-btn:hover{background:var(--cyan-dk)}
+
+    /* ─── POLL ────────────────────────────────────────────────────────────── */
+    .poll-question{font-family:'Space Mono',monospace;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;line-height:1.5;margin-bottom:1.25rem}
+    .poll-options{display:flex;flex-direction:column;gap:.75rem}
+    .poll-option{display:flex;flex-direction:column;gap:4px;cursor:pointer}
+    .poll-option-top{display:flex;align-items:center;justify-content:space-between}
+    .poll-option-label{font-family:'DM Sans',sans-serif;font-size:.85rem;color:var(--black);display:flex;align-items:center;gap:.5rem}
+    .poll-swatch{width:16px;height:16px;border-radius:2px;flex-shrink:0}
+    .poll-pct{font-family:'Space Mono',monospace;font-size:.7rem;font-weight:700;color:var(--muted)}
+    .poll-bar-track{height:6px;background:var(--border);border-radius:0;overflow:hidden}
+    .poll-bar-fill{height:100%;background:var(--cyan);transition:width .6s ease;border-radius:0}
+    .poll-voted-msg{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--cyan);margin-top:.75rem;display:none}
+    .poll-voted-msg.visible{display:block}
+    .poll-total{font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);margin-top:.5rem}
+
+    /* ─── FEATURED HISTORY ────────────────────────────────────────────────── */
+    .history-trend-name{font-family:'Playfair Display',serif;font-style:italic;font-size:1.25rem;margin-bottom:.75rem;color:var(--black)}
+    .history-text{font-family:'DM Sans',sans-serif;font-size:.85rem;line-height:1.7;color:var(--black)}
+
+    /* ─── MOST MEDIA MENTIONS ─────────────────────────────────────────────── */
+    .media-list{display:flex;flex-direction:column;gap:.6rem;margin-top:.25rem}
+    .media-item{display:flex;align-items:center;gap:.75rem;padding:.5rem 0;border-bottom:1px solid var(--border)}
+    .media-item:last-child{border-bottom:none}
+    .media-rank{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;color:var(--muted);width:18px;flex-shrink:0}
+    .media-source{font-family:'DM Sans',sans-serif;font-size:.82rem;font-weight:500}
+    .media-source a{color:var(--black);text-decoration:none}
+    .media-source a:hover{color:var(--cyan)}
+    .media-count{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--cyan);margin-left:auto}
+
+    /* ─── BOTTOM ROW ──────────────────────────────────────────────────────── */
+    .bottom-row{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--border)}
+    .bottom-cell{padding:1.75rem 2rem;border-right:1px solid var(--border)}
+    .bottom-cell:last-child{border-right:none}
+    .totd-info-name{font-family:'Space Mono',monospace;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:.5rem}
+    .totd-info-status{display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem}
+    .fun-fact-text{font-family:'DM Sans',sans-serif;font-size:.9rem;line-height:1.7;color:var(--black);margin-top:.5rem}
+    .fun-fact-label{font-family:'Space Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--cyan);margin-bottom:.4rem}
+
+    /* ── LEARN MORE MODAL ───────────────────────────────────────────────────── */
+    .ts-modal-overlay{
+      display:none;position:fixed;inset:0;z-index:700;
+      align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.6);
+      backdrop-filter:blur(4px);
+    }
+    .ts-modal-overlay.open{display:flex}
+    .ts-modal{
+      position:relative;width:92%;max-width:560px;max-height:88vh;overflow-y:auto;
+      border-radius:4px;
+      background:linear-gradient(145deg,#0a2a24 0%,#002e29 35%,#00120f 70%,#000 100%);
+      border:1px solid rgba(0,191,166,.25);
+      padding:2.5rem 2.75rem;
+      color:#fff;
+    }
+    .ts-modal-close{position:absolute;top:1.25rem;right:1.5rem;background:none;border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);font-family:'Space Mono',monospace;font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;padding:5px 12px;cursor:pointer;transition:all .15s}
+    .ts-modal-close:hover{border-color:var(--cyan);color:var(--cyan)}
+    .ts-modal-brand{font-family:'Playfair Display',serif;font-style:italic;font-size:1rem;text-align:center;color:rgba(255,255,255,.5);margin-bottom:.25rem}
+    .ts-modal-title{font-family:'Space Mono',monospace;font-size:1.4rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;text-align:center;margin-bottom:2rem;color:#fff}
+    .ts-modal-label{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:.4rem}
+    .ts-modal-body{font-family:'DM Sans',sans-serif;font-size:.88rem;line-height:1.75;color:var(--cyan);margin-bottom:1.5rem}
+    .ts-modal-divider{border:none;border-top:1px solid rgba(255,255,255,.1);margin:1.5rem 0}
+    .ts-modal-link{color:var(--cyan);text-decoration:none;font-family:'Space Mono',monospace;font-size:.72rem;letter-spacing:.04em}
+    .ts-modal-link:hover{text-decoration:underline}
+    .ts-modal-plain{font-family:'DM Sans',sans-serif;font-size:.85rem;line-height:1.7;color:rgba(255,255,255,.75);margin-bottom:.5rem}
+    .ts-modal-plain strong{color:#fff;font-weight:700}
+    .ts-modal-accent{color:var(--cyan)}
+
+    /* ── SETTINGS MODAL ─────────────────────────────────────────────────────── */
+    .ts-settings-modal{position:relative;width:92%;max-width:500px;max-height:88vh;overflow-y:auto;border-radius:4px;background:linear-gradient(145deg,#0a0a1a 0%,#0d1229 40%,#0a0a0a 100%);border:1px solid rgba(255,255,255,.12);padding:2.5rem 2.75rem;color:#fff}
+    .ts-settings-subtitle{font-family:'Space Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.4);margin:1.5rem 0 .75rem;padding-top:1.5rem;border-top:1px solid rgba(255,255,255,.08)}
+    .ts-settings-subtitle:first-of-type{margin-top:0;border-top:none;padding-top:0}
+    .ts-toggle-group{display:flex;gap:.6rem;flex-wrap:wrap}
+    .ts-toggle-btn{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:lowercase;padding:8px 20px;border:1.5px solid rgba(255,255,255,.2);background:transparent;color:rgba(255,255,255,.6);cursor:pointer;transition:all .2s}
+    .ts-toggle-btn.active{background:#fff;color:#000;border-color:#fff}
+    .ts-toggle-btn:hover:not(.active){border-color:rgba(255,255,255,.5);color:#fff}
+    .ts-select{font-family:'Space Mono',monospace;font-size:.65rem;padding:9px 14px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.05);color:rgba(255,255,255,.8);outline:none;cursor:pointer;width:100%;margin-top:.25rem}
+    .ts-select option{background:#1a1a2e;color:#fff}
+    .ts-slider-row{display:flex;align-items:center;gap:1rem;margin-top:.5rem}
+    .ts-range{-webkit-appearance:none;appearance:none;height:3px;background:rgba(255,255,255,.15);outline:none;flex:1}
+    .ts-range::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--cyan);cursor:pointer}
+    .ts-range-val{font-family:'Space Mono',monospace;font-size:.65rem;color:var(--cyan);min-width:28px;text-align:right}
+    .ts-privacy-text{font-family:'DM Sans',sans-serif;font-size:.82rem;line-height:1.7;color:rgba(255,255,255,.55);text-align:center;margin-top:.25rem}
+    .ts-reduce-btn{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;letter-spacing:.06em;text-transform:lowercase;padding:8px 20px;border:1.5px solid var(--cyan);background:rgba(0,191,166,.15);color:var(--cyan);cursor:pointer;transition:all .2s}
+    .ts-reduce-btn.active{background:var(--cyan);color:#000}
+    .ts-reduce-btn:hover:not(.active){background:rgba(0,191,166,.25)}
+
+    /* ─── FOOTER ──────────────────────────────────────────────────────────── */
+    footer{padding:1.25rem 2.5rem;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;display:flex;justify-content:space-between}
+  </style>
+</head>
+<body>
+
+<!-- ══ LOADING OVERLAY ══════════════════════════════════════════════════════ -->
+<div id="loading-overlay">
+  <div class="file-stack">
+    <div class="file file-1"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-2"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-3"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-4"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+    <div class="file file-5"><div class="file-tab"></div><div class="file-lines"><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div><div class="file-line"></div></div></div>
+  </div>
+  <div class="loading-label">pulling today's reports<span class="loading-dots"><span>.</span><span>.</span><span>.</span></span></div>
+  <div class="loading-sub">compiling the daily brief</div>
+</div>
+
+<!-- ══ NAVBAR ══════════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="nav-left">
+    <span id="live-datetime">–</span>
+    <div class="nav-search-wrap">
+      <input class="nav-search-input" id="nav-search-input" type="text" placeholder="search for.." maxlength="80"/>
+      <button class="nav-search-btn" onclick="goToSearch()">search</button>
+    </div>
+  </div>
+  <a class="nav-logo" href="/">thread-sight</a>
+  <div class="nav-right">
+    <button class="nav-btn" onclick="openLearnMore()">learn more.</button>
+    <button class="nav-btn" onclick="openSettings()">settings.</button>
+  </div>
+</nav>
+
+<div class="ticker-bar">
+  <div class="ticker-track">
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>today's report</span>
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>today's report</span>
+  </div>
+</div>
+
+<!-- ══ PAGE HEADER ══════════════════════════════════════════════════════════ -->
+<div class="page-header">
+  <p class="page-header-eyebrow">thread-sight daily brief</p>
+  <h1 class="page-header-title">TODAY'S REPORT:</h1>
+  <p class="page-header-date" id="header-date">—</p>
+</div>
+
+<!-- ══ MAIN GRID ════════════════════════════════════════════════════════════ -->
+<div class="today-grid" id="main-grid">
+
+  <!-- TREND OF THE DAY (left column) -->
+  <div class="grid-cell totd-cell">
+    <p class="cell-label">trend of the day</p>
+    <div class="totd-img-box" id="totd-img-box">
+      <img id="totd-img" alt="trend of the day visual"/>
+      <span class="totd-img-placeholder" id="totd-img-placeholder">loading visual..</span>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: poll + featured history + most media -->
+  <div style="display:flex;flex-direction:column">
+
+    <!-- POLL -->
+    <div class="grid-cell poll-cell">
+      <p class="cell-label">poll</p>
+      <p class="poll-question" id="poll-question">which of these trends are you currently into?</p>
+      <div class="poll-options" id="poll-options"></div>
+      <p class="poll-voted-msg" id="poll-voted-msg">✓ vote recorded!</p>
+      <p class="poll-total" id="poll-total"></p>
+    </div>
+
+    <!-- FEATURED HISTORY -->
+    <div class="grid-cell history-cell">
+      <p class="cell-label">featured history</p>
+      <p class="history-trend-name" id="featured-name">—</p>
+      <p class="history-text" id="featured-history">loading..</p>
+    </div>
+
+    <!-- MOST MEDIA MENTIONS -->
+    <div class="grid-cell media-cell">
+      <p class="cell-label">most media mentions</p>
+      <div class="media-list" id="media-list"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ BOTTOM ROW ═══════════════════════════════════════════════════════════ -->
+<div class="bottom-row">
+  <div class="bottom-cell">
+    <p class="cell-label">trend of the day</p>
+    <p class="totd-info-name" id="totd-info-name">—</p>
+    <div class="totd-info-status">
+      <span class="status-badge" id="totd-status-badge">—</span>
+    </div>
+    <button class="details-btn" onclick="goToDetails()">the details.</button>
+  </div>
+  <div class="bottom-cell">
+    <p class="fun-fact-label">◆ fun fact</p>
+    <p class="fun-fact-text" id="fun-fact">loading..</p>
+  </div>
+</div>
+
+<!-- ══ LEARN MORE MODAL ═════════════════════════════════════════════════════ -->
+<div class="ts-modal-overlay" id="learn-modal-overlay" onclick="closeLearnMore(event)">
+  <div class="ts-modal" role="dialog" aria-modal="true" aria-label="Learn More">
+    <button class="ts-modal-close" onclick="closeLearnMore()">✕ close</button>
+    <div class="ts-modal-brand">thread-sight</div>
+    <div class="ts-modal-title">Learn More</div>
+    <p class="ts-modal-label">who i am &amp; why i made this:</p>
+    <p class="ts-modal-body">hi, my name is lindsay! i'm a computer science student passionate about the intersection of design + tech + self-expression. i created thread-sight to help people explore and understand their personal style and the world of fashion in a more accessible, tech-driven way.</p>
+    <hr class="ts-modal-divider"/>
+    <p class="ts-modal-label">tech stack used:</p>
+    <p class="ts-modal-plain" style="margin-bottom:1.25rem">
+      <strong>backend:</strong> <span class="ts-modal-accent">python · flask · pytrends · matplotlib</span><br>
+      <strong>data sources:</strong> <span class="ts-modal-accent">google trends · newsapi · pinterest</span><br>
+      <strong>frontend:</strong> <span class="ts-modal-accent">vanilla html · css · javascript</span>
+    </p>
+    <hr class="ts-modal-divider"/>
+    <p class="ts-modal-label">links:</p>
+    <p class="ts-modal-plain" style="margin-bottom:.5rem">
+      <strong>github repo:</strong>
+      <a class="ts-modal-link" href="https://www.github.com/1lindsayj" target="_blank" rel="noopener">github.com/1lindsayj</a>
+    </p>
+    <p class="ts-modal-plain" style="margin-bottom:1.5rem">
+      <strong>linkedin (connect w/ me):</strong>
+      <a class="ts-modal-link" href="https://www.linkedin.com/in/lindsay-jarrett" target="_blank" rel="noopener">linkedin.com/in/lindsay-jarrett</a>
+    </p>
+    <hr class="ts-modal-divider"/>
+    <p class="ts-modal-label">feedback?</p>
+    <p class="ts-modal-plain">i'd love to hear it! email me:
+      <a class="ts-modal-link" href="mailto:lindsay.jarrett24@gmail.com">lindsay.jarrett24@gmail.com</a>
+    </p>
+  </div>
+</div>
+
+<!-- ══ SETTINGS MODAL ═══════════════════════════════════════════════════════ -->
+<div class="ts-modal-overlay" id="settings-modal-overlay" onclick="closeSettings(event)">
+  <div class="ts-settings-modal" role="dialog" aria-modal="true" aria-label="Settings">
+    <button class="ts-modal-close" onclick="closeSettings()">✕ close</button>
+    <div class="ts-modal-brand">thread-sight</div>
+    <div class="ts-modal-title">Settings</div>
+    <p class="ts-settings-subtitle">appearance:</p>
+    <div class="ts-toggle-group">
+      <button class="ts-toggle-btn active" id="theme-light" onclick="setTheme('light')">light</button>
+      <button class="ts-toggle-btn" id="theme-dark" onclick="setTheme('dark')">dark</button>
+    </div>
+    <p class="ts-settings-subtitle">language:</p>
+    <select class="ts-select" id="lang-select" onchange="setLanguage(this.value)">
+      <option value="en">english</option>
+      <option value="es">español</option>
+      <option value="fr">français</option>
+      <option value="de">deutsch</option>
+      <option value="it">italiano</option>
+      <option value="pt">português</option>
+      <option value="ja">日本語</option>
+      <option value="zh">中文</option>
+      <option value="ko">한국어</option>
+    </select>
+    <p style="font-family:'Space Mono',monospace;font-size:.58rem;color:rgba(255,255,255,.35);margin-top:.4rem;letter-spacing:.04em">language translation via google translate</p>
+    <p class="ts-settings-subtitle">accessibility:</p>
+    <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:.75rem">
+      <button class="ts-reduce-btn" id="reduce-motion-btn" onclick="toggleReduceMotion()">reduce motion</button>
+    </div>
+    <div style="margin-top:.5rem">
+      <p class="ts-modal-label" style="color:rgba(255,255,255,.4);margin-bottom:.3rem">adjust text size:</p>
+      <div class="ts-slider-row">
+        <span style="font-family:'Space Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.4)">A</span>
+        <input class="ts-range" type="range" min="85" max="120" value="100" step="5" id="font-size-range" oninput="setFontSize(this.value)"/>
+        <span style="font-family:'Space Mono',monospace;font-size:.9rem;color:rgba(255,255,255,.4)">A</span>
+        <span class="ts-range-val" id="font-size-val">100%</span>
+      </div>
+    </div>
+    <p class="ts-settings-subtitle">privacy:</p>
+    <p class="ts-privacy-text">this site does not collect, store, or share personal data.<br>preferences like theme and language are saved locally in your browser.</p>
+  </div>
+</div>
+
+<footer>
+  <span>thread-sight v0.2 — today's report</span>
+  <span>powered by google trends · newsapi · pinterest</span>
+</footer>
+
+<script>
+// ── loading overlay ───────────────────────────────────────────────────────────
+window.addEventListener('load',()=>{
+  setTimeout(()=>{const ov=document.getElementById('loading-overlay');ov.classList.add('hidden');setTimeout(()=>ov.style.display='none',650)},5000);
+  loadSavedPrefs();
+});
+
+// ── nav search → go to home with keyword pre-filled ──────────────────────────
+function goToSearch(){
+  const kw=document.getElementById('nav-search-input').value.trim();
+  if(kw){ sessionStorage.setItem('search_kw',kw); }
+  window.location.href='/';
+}
+document.getElementById('nav-search-input').addEventListener('keydown',e=>{ if(e.key==='Enter') goToSearch(); });
+
+// ── live clock ───────────────────────────────────────────────────────────────
+function updateClock(){
+  const now=new Date();
+  document.getElementById('live-datetime').textContent=now.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).toLowerCase();
+  document.getElementById('header-date').textContent=now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toLowerCase();
+}
+updateClock(); setInterval(updateClock,60000);
+
+// ── poll state ───────────────────────────────────────────────────────────────
+const POLL_TRENDS=['quiet luxury','gorpcore','coquette','y2k revival','dark academia'];
+const POLL_COLORS=['#E8603C','#1B3A8C','#00BFA6','#E8C4C0','#2c2c2c'];
+let pollVotes={'quiet luxury':42,'gorpcore':28,'coquette':19,'y2k revival':35,'dark academia':16};
+let hasVoted=false;
+
+function renderPoll(){
+  const total=Object.values(pollVotes).reduce((a,b)=>a+b,0);
+  document.getElementById('poll-total').textContent=`${total} total votes`;
+  const container=document.getElementById('poll-options');
+  container.innerHTML=POLL_TRENDS.map((t,i)=>{
+    const pct=total>0?Math.round((pollVotes[t]/total)*100):0;
+    return `<div class="poll-option" onclick="${hasVoted?'':`castVote('${t}')`}">
+      <div class="poll-option-top">
+        <span class="poll-option-label"><span class="poll-swatch" style="background:${POLL_COLORS[i]}"></span>${t}</span>
+        <span class="poll-pct">${pct}%</span>
+      </div>
+      <div class="poll-bar-track"><div class="poll-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function castVote(trend){
+  if(hasVoted) return;
+  hasVoted=true;
+  pollVotes[trend]=(pollVotes[trend]||0)+1;
+  renderPoll();
+  document.getElementById('poll-voted-msg').classList.add('visible');
+}
+
+// ── fetch today's data ────────────────────────────────────────────────────────
+let todTrend='';
+async function loadTodayData(){
+  try{
+    const resp=await fetch('/api/today-data');
+    const data=await resp.json();
+    todTrend=data.trend_of_day||'quiet luxury';
+    const status=data.status||'stable';
+    document.getElementById('totd-info-name').textContent=todTrend.toUpperCase();
+    document.getElementById('featured-name').textContent=data.featured_trend||'—';
+    const palette=getPalette(todTrend);
+    const imgBox=document.getElementById('totd-img-box');
+    imgBox.style.background=`linear-gradient(135deg,${palette[0]},${palette[2]})`;
+    const imgEl=document.getElementById('totd-img');
+    imgEl.src=`https://source.unsplash.com/600x450/?${encodeURIComponent(todTrend+' fashion')}`;
+    imgEl.onload=()=>{imgEl.style.display='block';document.getElementById('totd-img-placeholder').style.display='none'};
+    const sb=document.getElementById('totd-status-badge');
+    sb.textContent=status; sb.className='status-badge '+status;
+    document.getElementById('featured-history').textContent=data.featured_history||'—';
+    document.getElementById('fun-fact').textContent=data.fun_fact||'—';
+    const news=data.news||[];
+    const sourceCounts={};
+    news.forEach(a=>{ const s=a.source||'unknown'; if(!sourceCounts[s]) sourceCounts[s]={count:0,url:a.url}; sourceCounts[s].count++; });
+    const sorted=Object.entries(sourceCounts).sort((a,b)=>b[1].count-a[1].count);
+    const ml=document.getElementById('media-list');
+    if(sorted.length===0){
+      ml.innerHTML='<p style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:var(--muted)">add NEWS_API_KEY to .env to see media mentions.</p>';
+    } else {
+      ml.innerHTML=sorted.slice(0,5).map(([src,d],i)=>`
+        <div class="media-item">
+          <span class="media-rank">${i+1}.</span>
+          <span class="media-source"><a href="${d.url||'#'}" target="_blank" rel="noopener">${src}</a></span>
+          <span class="media-count">${d.count} article${d.count>1?'s':''}</span>
+        </div>
+      `).join('');
+    }
+  }catch(e){ console.error('failed to load today data:',e); }
+}
+
+function goToDetails(){ sessionStorage.setItem('search_kw', todTrend); window.location.href='/'; }
+
+// ── palettes ─────────────────────────────────────────────────────────────────
+const PALETTES={'quiet luxury':['#e8e0d5','#c9bfb0','#8a7d6e'],'y2k revival':['#ff69b4','#7df9ff','#ff1493'],'gorpcore':['#4a6741','#8b7355','#2c3e2d'],'coquette':['#f4c2c2','#e8b4cb','#d4a5c4'],'coastal prep':['#1a3a5c','#c8b89a','#4a7c99'],'streetwear':['#1a1a1a','#c8392b','#2980b9'],'minimalist':['#f5f5f0','#d0cfc8','#8a8880'],'dark academia':['#3d2b1f','#6b4c35','#c4a882'],'cottagecore':['#7ab648','#d4b896','#5a8a3c'],'barbiecore':['#ff69b4','#ff1493','#ff99cc']};
+function getPalette(kw){const kl=kw.toLowerCase();for(const[k,v]of Object.entries(PALETTES)){if(kl.includes(k)||k.includes(kl))return v}return['#00BFA6','#009c87','#007A6B']}
+
+// ── LEARN MORE MODAL ──────────────────────────────────────────────────────────
+function openLearnMore(){
+  document.getElementById('learn-modal-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeLearnMore(e){
+  if(e && e.target!==document.getElementById('learn-modal-overlay')) return;
+  document.getElementById('learn-modal-overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+
+// ── SETTINGS MODAL ────────────────────────────────────────────────────────────
+function openSettings(){
+  document.getElementById('settings-modal-overlay').classList.add('open');
+  document.body.style.overflow='hidden';
+}
+function closeSettings(e){
+  if(e && e.target!==document.getElementById('settings-modal-overlay')) return;
+  document.getElementById('settings-modal-overlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+function setTheme(t){
+  localStorage.setItem('ts_theme',t);
+  document.getElementById('theme-light').classList.toggle('active',t==='light');
+  document.getElementById('theme-dark').classList.toggle('active',t==='dark');
+  applyTheme(t);
+}
+function applyTheme(t){
+  if(t==='dark'){
+    document.documentElement.style.setProperty('--white','#0f0f0f');
+    document.documentElement.style.setProperty('--black','#f0f0f0');
+    document.documentElement.style.setProperty('--bg','#1a1a1a');
+    document.documentElement.style.setProperty('--border','#333');
+    document.documentElement.style.setProperty('--muted','#888');
+    document.body.style.background='#0f0f0f';
+    document.body.style.color='#f0f0f0';
+  } else {
+    document.documentElement.style.setProperty('--white','#fff');
+    document.documentElement.style.setProperty('--black','#000');
+    document.documentElement.style.setProperty('--bg','#f7f7f7');
+    document.documentElement.style.setProperty('--border','#ddd');
+    document.documentElement.style.setProperty('--muted','#666');
+    document.body.style.background='#fff';
+    document.body.style.color='#000';
+  }
+}
+function setLanguage(lang){
+  localStorage.setItem('ts_lang',lang);
+  if(lang==='en'){ const el=document.getElementById('google-translate-el'); if(el) el.remove(); return; }
+  if(!document.getElementById('google-translate-el')){ const div=document.createElement('div'); div.id='google-translate-el'; div.style.display='none'; document.body.appendChild(div); }
+  if(!document.getElementById('gt-script')){
+    window.gtInit=function(){ new google.translate.TranslateElement({pageLanguage:'en',includedLanguages:lang,autoDisplay:true},'google-translate-el'); };
+    const s=document.createElement('script'); s.id='gt-script'; s.src='//translate.google.com/translate_a/element.js?cb=gtInit'; document.head.appendChild(s);
+  }
+}
+let _reduceMotion=false;
+function toggleReduceMotion(){
+  _reduceMotion=!_reduceMotion;
+  localStorage.setItem('ts_reduce_motion',_reduceMotion);
+  document.getElementById('reduce-motion-btn').classList.toggle('active',_reduceMotion);
+  applyReduceMotion(_reduceMotion);
+}
+function applyReduceMotion(on){
+  let tag=document.getElementById('ts-reduce-motion-style');
+  if(!tag){ tag=document.createElement('style'); tag.id='ts-reduce-motion-style'; document.head.appendChild(tag); }
+  tag.textContent=on?'*, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }':'';
+}
+function setFontSize(val){
+  document.documentElement.style.fontSize=val+'%';
+  const el=document.getElementById('font-size-val'); if(el) el.textContent=val+'%';
+  localStorage.setItem('ts_font_size',val);
+}
+function loadSavedPrefs(){
+  const theme=localStorage.getItem('ts_theme')||'light';
+  const tl=document.getElementById('theme-light'); const td=document.getElementById('theme-dark');
+  if(tl) tl.classList.toggle('active',theme==='light');
+  if(td) td.classList.toggle('active',theme==='dark');
+  applyTheme(theme);
+  const fs=localStorage.getItem('ts_font_size'); if(fs){ const rng=document.getElementById('font-size-range'); if(rng) rng.value=fs; setFontSize(fs); }
+  const rm=localStorage.getItem('ts_reduce_motion')==='true'; _reduceMotion=rm;
+  const rmBtn=document.getElementById('reduce-motion-btn'); if(rmBtn) rmBtn.classList.toggle('active',rm);
+  if(rm) applyReduceMotion(true);
+  const lang=localStorage.getItem('ts_lang'); if(lang){ const sel=document.getElementById('lang-select'); if(sel) sel.value=lang; if(lang!=='en') setLanguage(lang); }
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){
+    document.getElementById('learn-modal-overlay').classList.remove('open');
+    document.getElementById('settings-modal-overlay').classList.remove('open');
+    document.body.style.overflow='';
+  }
+});
+
+// ── init ─────────────────────────────────────────────────────────────────────
+renderPoll();
+loadTodayData();
+const stored=sessionStorage.getItem('search_kw');
+if(stored) sessionStorage.removeItem('search_kw');
+</script>
+</body>
+</html>

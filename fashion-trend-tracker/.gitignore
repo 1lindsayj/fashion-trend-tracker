@@ -1,6 +1,31 @@
-.venv/
-__pycache__/
-*.pyc 
+# thread-sight .gitignore
+# ─────────────────────────
+# SECRET FILES — never commit these
+.env
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# virtual environments
+venv/
+env/
+.venv/
+
+# OS
 .DS_Store
-Icon?
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# logs
+*.log
