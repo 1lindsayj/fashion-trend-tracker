@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{--cyan:#00BFA6;--cyan-dk:#009c87;--black:#000;--white:#fff;--muted:#666;--border:#ddd;--bg:#f7f7f7}
+    :root{--cyan:#00BFA6;--cyan-dk:#009c87;--teal-btn:#00695C;--teal-btn-dk:#004D40;--teal-text:#00695C; /* [new] */--black:#000;--white:#fff;--muted:#666;--border:#ddd;--bg:#f7f7f7}
     html{scroll-behavior:smooth}
     body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black);min-height:100vh}
 
@@ -88,7 +88,7 @@
     .status-badge{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 14px}
     .status-badge.rising{background:#d4f5ed;color:#006b55}
     .status-badge.fading{background:#fde8e8;color:#8b1c1c}
-    .status-badge.stable{background:#ebebeb;color:#444}
+    .status-badge.stable{background:#ebebeb;color:#444}  /* new verdict classes are in the CHANGED block below */
     .totd-img-box{width:100%;aspect-ratio:4/3;background:linear-gradient(135deg,#00BFA6,#004d42);display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
     .totd-img-box img{width:100%;height:100%;object-fit:cover;display:none}
     .totd-img-placeholder{font-family:'Space Mono',monospace;font-size:.6rem;color:rgba(255,255,255,.6);letter-spacing:.08em;text-transform:uppercase;text-align:center}
@@ -182,6 +182,18 @@
 
     /* ─── FOOTER ──────────────────────────────────────────────────────────── */
     footer{padding:1.25rem 2.5rem;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;display:flex;justify-content:space-between}
+
+    /* ══ [new] — accessibility, honest status badge ═════════════════════════════ */
+    html{font-size:112.5%}
+    .details-btn{background:var(--teal-btn);color:#fff}
+    .details-btn:hover{background:var(--teal-btn-dk)}
+    .page-header-eyebrow,.fun-fact-label,.media-count,.poll-voted-msg{color:var(--teal-text)}
+    .status-badge.peaking{background:#fff3d6;color:#7a4b00}
+    .status-badge.steady,.status-badge.insufficient_data,.status-badge.unavailable{background:#ebebeb;color:#444}
+    .status-badge.seasonal{background:#e6e9fb;color:#2a3a8c}
+    .status-badge.one_off_spike,.status-badge.spiking{background:#fdeacc;color:#8a3b00}
+    .totd-reason{font-size:.85rem;line-height:1.6;margin:0 0 .9rem;max-width:34rem}
+    @media (prefers-reduced-motion: reduce){.ticker-track,.file{animation:none!important}}
   </style>
 </head>
 <body>
@@ -217,8 +229,8 @@
 
 <div class="ticker-bar">
   <div class="ticker-track">
-    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>today's report</span>
-    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>today's report</span>
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>weekly search data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>today's report</span>
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>weekly search data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>today's report</span>
   </div>
 </div>
 
@@ -249,7 +261,7 @@
       <p class="cell-label">poll</p>
       <p class="poll-question" id="poll-question">which of these trends are you currently into?</p>
       <div class="poll-options" id="poll-options"></div>
-      <p class="poll-voted-msg" id="poll-voted-msg">✓ vote recorded!</p>
+      <p class="poll-voted-msg" id="poll-voted-msg">✓ saved on this device</p><!-- CHANGED [#5] -->
       <p class="poll-total" id="poll-total"></p>
     </div>
 
@@ -277,6 +289,8 @@
     <div class="totd-info-status">
       <span class="status-badge" id="totd-status-badge">—</span>
     </div>
+    <!-- [new] the verdict in plain language -->
+    <p class="totd-reason" id="totd-reason"></p>
     <button class="details-btn" onclick="goToDetails()">the details.</button>
   </div>
   <div class="bottom-cell">
@@ -297,7 +311,7 @@
     <p class="ts-modal-label">tech stack used:</p>
     <p class="ts-modal-plain" style="margin-bottom:1.25rem">
       <strong>backend:</strong> <span class="ts-modal-accent">python · flask · pytrends · matplotlib</span><br>
-      <strong>data sources:</strong> <span class="ts-modal-accent">google trends · newsapi · pinterest</span><br>
+      <strong>data sources:</strong> <span class="ts-modal-accent">google trends · newsapi · unsplash</span><br>
       <strong>frontend:</strong> <span class="ts-modal-accent">vanilla html · css · javascript</span>
     </p>
     <hr class="ts-modal-divider"/>
@@ -362,15 +376,13 @@
 
 <footer>
   <span>thread-sight v0.2 — today's report</span>
-  <span>powered by google trends · newsapi · pinterest</span>
+  <span>powered by google trends · newsapi · unsplash</span>
 </footer>
 
+<!-- [new] shared code now lives in static/js/shared.js -->
+<script src="{{ url_for('static', filename='js/shared.js') }}"></script>
 <script>
-// ── loading overlay ───────────────────────────────────────────────────────────
-window.addEventListener('load',()=>{
-  setTimeout(()=>{const ov=document.getElementById('loading-overlay');ov.classList.add('hidden');setTimeout(()=>ov.style.display='none',650)},5000);
-  loadSavedPrefs();
-});
+// [new] the fixed 5-second overlay timer now lives in shared.js (first visit only, 1.2s)
 
 // ── nav search → go to home with keyword pre-filled ──────────────────────────
 function goToSearch(){
@@ -380,23 +392,20 @@ function goToSearch(){
 }
 document.getElementById('nav-search-input').addEventListener('keydown',e=>{ if(e.key==='Enter') goToSearch(); });
 
-// ── live clock ───────────────────────────────────────────────────────────────
-function updateClock(){
-  const now=new Date();
-  document.getElementById('live-datetime').textContent=now.toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).toLowerCase();
-  document.getElementById('header-date').textContent=now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}).toLowerCase();
-}
-updateClock(); setInterval(updateClock,60000);
+// [new] live clock (incl. header date) moved to shared.js
 
 // ── poll state ───────────────────────────────────────────────────────────────
 const POLL_TRENDS=['quiet luxury','gorpcore','coquette','y2k revival','dark academia'];
 const POLL_COLORS=['#E8603C','#1B3A8C','#00BFA6','#E8C4C0','#2c2c2c'];
-let pollVotes={'quiet luxury':42,'gorpcore':28,'coquette':19,'y2k revival':35,'dark academia':16};
+// [new] the old starting numbers (42, 28, 19...) were made up. Votes start at 0 and only YOUR vote is saved
+// on this device. A real shared poll needs a backend (see the community notes in PATCH_GUIDE.md).
+let pollVotes={}; POLL_TRENDS.forEach(t=>pollVotes[t]=0);
 let hasVoted=false;
+try{ const saved=localStorage.getItem('ts_poll_vote'); if(saved && POLL_TRENDS.includes(saved)){ pollVotes[saved]=1; hasVoted=true; } }catch(e){}
 
 function renderPoll(){
   const total=Object.values(pollVotes).reduce((a,b)=>a+b,0);
-  document.getElementById('poll-total').textContent=`${total} total votes`;
+  document.getElementById('poll-total').textContent=(total ? `${total} vote (this device only)` : 'no votes yet. this poll is a prototype and saves your vote on this device only.');
   const container=document.getElementById('poll-options');
   container.innerHTML=POLL_TRENDS.map((t,i)=>{
     const pct=total>0?Math.round((pollVotes[t]/total)*100):0;
@@ -414,6 +423,7 @@ function castVote(trend){
   if(hasVoted) return;
   hasVoted=true;
   pollVotes[trend]=(pollVotes[trend]||0)+1;
+  try{ localStorage.setItem('ts_poll_vote',trend); }catch(e){}  // CHANGED [#5]
   renderPoll();
   document.getElementById('poll-voted-msg').classList.add('visible');
 }
@@ -424,18 +434,26 @@ async function loadTodayData(){
   try{
     const resp=await fetch('/api/today-data');
     const data=await resp.json();
+    // [new] a rate-limit/server error used to silently fall back to 'quiet luxury' + 'stable'
+    if(!resp.ok){ document.getElementById('totd-img-placeholder').textContent=data.error||"couldn't load today's report."; return; }
     todTrend=data.trend_of_day||'quiet luxury';
-    const status=data.status||'stable';
+    const status=data.status||'unavailable';  // [new] never default to "stable"
     document.getElementById('totd-info-name').textContent=todTrend.toUpperCase();
     document.getElementById('featured-name').textContent=data.featured_trend||'—';
     const palette=getPalette(todTrend);
     const imgBox=document.getElementById('totd-img-box');
     imgBox.style.background=`linear-gradient(135deg,${palette[0]},${palette[2]})`;
     const imgEl=document.getElementById('totd-img');
-    imgEl.src=`https://source.unsplash.com/600x450/?${encodeURIComponent(todTrend+' fashion')}`;
-    imgEl.onload=()=>{imgEl.style.display='block';document.getElementById('totd-img-placeholder').style.display='none'};
+    // [new] source.unsplash.com is retired; use our /api/lookbook (Unsplash API, key stays on the server)
+    fetch('/api/lookbook?q='+encodeURIComponent(todTrend)).then(r=>r.json()).then(p=>{
+      const ph=(p.photos||[])[0];
+      if(!ph){ document.getElementById('totd-img-placeholder').textContent=''; return; }
+      imgEl.onload=()=>{imgEl.style.display='block';document.getElementById('totd-img-placeholder').style.display='none'};
+      imgEl.alt=ph.alt||'trend of the day visual'; imgEl.src=ph.url;
+    }).catch(()=>{});
     const sb=document.getElementById('totd-status-badge');
-    sb.textContent=status; sb.className='status-badge '+status;
+    sb.textContent=data.label_display||status.replace(/_/g,' '); sb.className='status-badge '+status;
+    document.getElementById('totd-reason').textContent=[data.headline,data.reason,data.stale?`(saved data from ${data.cached_at_pretty})`:''].filter(Boolean).join(' ')||((data.warnings||[])[0]||'');  // CHANGED [#1][#3]
     document.getElementById('featured-history').textContent=data.featured_history||'—';
     document.getElementById('fun-fact').textContent=data.fun_fact||'—';
     const news=data.news||[];
@@ -444,13 +462,14 @@ async function loadTodayData(){
     const sorted=Object.entries(sourceCounts).sort((a,b)=>b[1].count-a[1].count);
     const ml=document.getElementById('media-list');
     if(sorted.length===0){
-      ml.innerHTML='<p style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:var(--muted)">add NEWS_API_KEY to .env to see media mentions.</p>';
+      ml.innerHTML='<p style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:var(--muted)">'+esc((data.warnings||[]).find(w=>w.startsWith('news'))||'no articles found.')+'</p>';  // CHANGED [#4]
     } else {
+      // [new] NewsAPI text/URLs are escaped (esc) and URLs must be http(s) before going into innerHTML
       ml.innerHTML=sorted.slice(0,5).map(([src,d],i)=>`
         <div class="media-item">
           <span class="media-rank">${i+1}.</span>
-          <span class="media-source"><a href="${d.url||'#'}" target="_blank" rel="noopener">${src}</a></span>
-          <span class="media-count">${d.count} article${d.count>1?'s':''}</span>
+          <span class="media-source"><a href="${esc(/^https?:\/\//i.test(d.url||'')?d.url:'#')}" target="_blank" rel="noopener noreferrer">${esc(src)}</a></span>
+          <span class="media-count">${Number(d.count)} article${d.count>1?'s':''}</span>
         </div>
       `).join('');
     }
@@ -463,98 +482,8 @@ function goToDetails(){ sessionStorage.setItem('search_kw', todTrend); window.lo
 const PALETTES={'quiet luxury':['#e8e0d5','#c9bfb0','#8a7d6e'],'y2k revival':['#ff69b4','#7df9ff','#ff1493'],'gorpcore':['#4a6741','#8b7355','#2c3e2d'],'coquette':['#f4c2c2','#e8b4cb','#d4a5c4'],'coastal prep':['#1a3a5c','#c8b89a','#4a7c99'],'streetwear':['#1a1a1a','#c8392b','#2980b9'],'minimalist':['#f5f5f0','#d0cfc8','#8a8880'],'dark academia':['#3d2b1f','#6b4c35','#c4a882'],'cottagecore':['#7ab648','#d4b896','#5a8a3c'],'barbiecore':['#ff69b4','#ff1493','#ff99cc']};
 function getPalette(kw){const kl=kw.toLowerCase();for(const[k,v]of Object.entries(PALETTES)){if(kl.includes(k)||k.includes(kl))return v}return['#00BFA6','#009c87','#007A6B']}
 
-// ── LEARN MORE MODAL ──────────────────────────────────────────────────────────
-function openLearnMore(){
-  document.getElementById('learn-modal-overlay').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-function closeLearnMore(e){
-  if(e && e.target!==document.getElementById('learn-modal-overlay')) return;
-  document.getElementById('learn-modal-overlay').classList.remove('open');
-  document.body.style.overflow='';
-}
-
-// ── SETTINGS MODAL ────────────────────────────────────────────────────────────
-function openSettings(){
-  document.getElementById('settings-modal-overlay').classList.add('open');
-  document.body.style.overflow='hidden';
-}
-function closeSettings(e){
-  if(e && e.target!==document.getElementById('settings-modal-overlay')) return;
-  document.getElementById('settings-modal-overlay').classList.remove('open');
-  document.body.style.overflow='';
-}
-function setTheme(t){
-  localStorage.setItem('ts_theme',t);
-  document.getElementById('theme-light').classList.toggle('active',t==='light');
-  document.getElementById('theme-dark').classList.toggle('active',t==='dark');
-  applyTheme(t);
-}
-function applyTheme(t){
-  if(t==='dark'){
-    document.documentElement.style.setProperty('--white','#0f0f0f');
-    document.documentElement.style.setProperty('--black','#f0f0f0');
-    document.documentElement.style.setProperty('--bg','#1a1a1a');
-    document.documentElement.style.setProperty('--border','#333');
-    document.documentElement.style.setProperty('--muted','#888');
-    document.body.style.background='#0f0f0f';
-    document.body.style.color='#f0f0f0';
-  } else {
-    document.documentElement.style.setProperty('--white','#fff');
-    document.documentElement.style.setProperty('--black','#000');
-    document.documentElement.style.setProperty('--bg','#f7f7f7');
-    document.documentElement.style.setProperty('--border','#ddd');
-    document.documentElement.style.setProperty('--muted','#666');
-    document.body.style.background='#fff';
-    document.body.style.color='#000';
-  }
-}
-function setLanguage(lang){
-  localStorage.setItem('ts_lang',lang);
-  if(lang==='en'){ const el=document.getElementById('google-translate-el'); if(el) el.remove(); return; }
-  if(!document.getElementById('google-translate-el')){ const div=document.createElement('div'); div.id='google-translate-el'; div.style.display='none'; document.body.appendChild(div); }
-  if(!document.getElementById('gt-script')){
-    window.gtInit=function(){ new google.translate.TranslateElement({pageLanguage:'en',includedLanguages:lang,autoDisplay:true},'google-translate-el'); };
-    const s=document.createElement('script'); s.id='gt-script'; s.src='//translate.google.com/translate_a/element.js?cb=gtInit'; document.head.appendChild(s);
-  }
-}
-let _reduceMotion=false;
-function toggleReduceMotion(){
-  _reduceMotion=!_reduceMotion;
-  localStorage.setItem('ts_reduce_motion',_reduceMotion);
-  document.getElementById('reduce-motion-btn').classList.toggle('active',_reduceMotion);
-  applyReduceMotion(_reduceMotion);
-}
-function applyReduceMotion(on){
-  let tag=document.getElementById('ts-reduce-motion-style');
-  if(!tag){ tag=document.createElement('style'); tag.id='ts-reduce-motion-style'; document.head.appendChild(tag); }
-  tag.textContent=on?'*, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }':'';
-}
-function setFontSize(val){
-  document.documentElement.style.fontSize=val+'%';
-  const el=document.getElementById('font-size-val'); if(el) el.textContent=val+'%';
-  localStorage.setItem('ts_font_size',val);
-}
-function loadSavedPrefs(){
-  const theme=localStorage.getItem('ts_theme')||'light';
-  const tl=document.getElementById('theme-light'); const td=document.getElementById('theme-dark');
-  if(tl) tl.classList.toggle('active',theme==='light');
-  if(td) td.classList.toggle('active',theme==='dark');
-  applyTheme(theme);
-  const fs=localStorage.getItem('ts_font_size'); if(fs){ const rng=document.getElementById('font-size-range'); if(rng) rng.value=fs; setFontSize(fs); }
-  const rm=localStorage.getItem('ts_reduce_motion')==='true'; _reduceMotion=rm;
-  const rmBtn=document.getElementById('reduce-motion-btn'); if(rmBtn) rmBtn.classList.toggle('active',rm);
-  if(rm) applyReduceMotion(true);
-  const lang=localStorage.getItem('ts_lang'); if(lang){ const sel=document.getElementById('lang-select'); if(sel) sel.value=lang; if(lang!=='en') setLanguage(lang); }
-}
-
-document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){
-    document.getElementById('learn-modal-overlay').classList.remove('open');
-    document.getElementById('settings-modal-overlay').classList.remove('open');
-    document.body.style.overflow='';
-  }
-});
+// [new] learn-more/settings modals, theme, language, reduce-motion, text size, saved prefs and the
+// Escape-key handler moved to static/js/shared.js
 
 // ── init ─────────────────────────────────────────────────────────────────────
 renderPoll();

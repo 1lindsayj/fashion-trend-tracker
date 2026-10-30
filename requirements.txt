@@ -1,0 +1,9 @@
+flask>=3.0.0
+flask-limiter>=3.5.0
+pytrends>=4.9.2
+
+#added 10/30
+pandas>=2.2,<4
+matplotlib>=3.8,<4
+requests>=2.31,<3
+python-dotenv>=1.0,<2

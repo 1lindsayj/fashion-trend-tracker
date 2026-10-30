@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<!-- templates/compare.html   (new)  — the page behind the "compare with others" button -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>compare · thread-sight</title>
+  <link rel="icon" type="image/png" href="/static/threadsighticon.png"/>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{--cyan:#00BFA6;--teal-btn:#00695C;--teal-btn-dk:#004D40;--teal-text:#00695C;
+          --black:#000;--white:#fff;--muted:#666;--border:#ddd;--bg:#f7f7f7}
+    html{font-size:112.5%;scroll-behavior:smooth}
+    body{font-family:'DM Sans',sans-serif;background:var(--white);color:var(--black);min-height:100vh}
+    nav{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:.9rem 2.5rem;border-bottom:2px solid var(--black);position:sticky;top:0;background:var(--white);z-index:50}
+    .nav-logo{font-family:'Playfair Display',serif;font-size:1.85rem;font-style:italic;letter-spacing:-.03em;color:var(--black);text-decoration:none;justify-self:center}
+    .nav-link{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;color:var(--black);text-decoration:underline;text-underline-offset:3px}
+    .nav-link:last-child{justify-self:end}
+    main{max-width:1000px;margin:0 auto;padding:2.5rem 1.5rem 4rem}
+    .eyebrow{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--teal-text);margin-bottom:.8rem}
+    h1{font-family:'Playfair Display',serif;font-style:italic;font-weight:400;font-size:clamp(2.2rem,4.5vw,3.4rem);line-height:1.05;margin-bottom:1rem}
+    .lede{font-size:.9rem;color:var(--muted);max-width:560px;line-height:1.7;margin-bottom:1.5rem}
+    .inputs{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:.6rem;margin-bottom:.75rem}
+    .inputs input{font-family:'Space Mono',monospace;font-size:.78rem;padding:12px 14px;border:2px solid var(--black);background:var(--white);color:var(--black);outline:none}
+    .inputs input:focus{border-color:var(--teal-btn)}
+    .btn{font-family:'Space Mono',monospace;font-size:.75rem;font-weight:700;padding:13px 28px;background:var(--teal-btn);color:#fff;border:none;cursor:pointer}
+    .btn:hover{background:var(--teal-btn-dk)} .btn:disabled{background:var(--muted);cursor:not-allowed}
+    .msg{font-family:'Space Mono',monospace;font-size:.7rem;padding:10px 14px;margin:.75rem 0;display:none;border-left:3px solid}
+    .msg.visible{display:block}
+    .msg.err{color:#8b1c1c;background:#fde8e8;border-color:#c0392b}
+    .msg.note{color:#5c4400;background:#fff8e1;border-color:#f0b429}
+    #result{display:none;margin-top:2rem}
+    #result.visible{display:block}
+    .headline{font-family:'Playfair Display',serif;font-size:clamp(1.4rem,3vw,2rem);line-height:1.25;margin-bottom:1.25rem}
+    .panel{background:var(--bg);border:1px solid var(--border);padding:1.25rem 1.5rem 1rem}
+    .toolbar{display:flex;gap:.5rem;align-items:center;margin-bottom:.75rem}
+    .toolbar .lbl{flex:1;font-family:'Space Mono',monospace;font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+    .range{font-family:'Space Mono',monospace;font-size:.62rem;font-weight:700;padding:4px 10px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer}
+    .range.active{background:var(--black);color:var(--white);border-color:var(--black)}
+    .chart-wrap{position:relative;height:300px}
+    .how-to-read{font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);margin-top:.75rem;line-height:1.6}
+    .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:1.25rem}
+    .card{border:1px solid var(--border);padding:1.1rem 1.2rem;display:flex;flex-direction:column;gap:.6rem}
+    .card h2{font-family:'Space Mono',monospace;font-size:.85rem;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:.5rem}
+    .swatch{width:22px;height:4px;display:inline-block}
+    .badge{align-self:flex-start;font-family:'Space Mono',monospace;font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:3px 10px}
+    .badge.rising{background:#d4f5ed;color:#006b55} .badge.fading{background:#fde8e8;color:#8b1c1c}
+    .badge.steady,.badge.insufficient_data{background:#ebebeb;color:#444} .badge.peaking{background:#fff3d6;color:#7a4b00}
+    .badge.seasonal{background:#e6e9fb;color:#2a3a8c} .badge.one_off_spike,.badge.spiking{background:#fdeacc;color:#8a3b00}
+    .conf{font-family:'Space Mono',monospace;font-size:.6rem;color:var(--muted)}
+    .card p{font-size:.82rem;line-height:1.6}
+    .card a{font-family:'Space Mono',monospace;font-size:.65rem;font-weight:700;color:var(--teal-text)}
+    @media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}}
+  </style>
+</head>
+<body>
+<nav>
+  <a class="nav-link" href="/">← back to search</a>
+  <a class="nav-logo" href="/">thread-sight</a>
+  <a class="nav-link" href="/today">today's report</a>
+</nav>
+
+<main>
+  <p class="eyebrow">compare</p>
+  <h1>Which one has the momentum?</h1>
+  <p class="lede">add 2–4 trends. the chart puts them on one shared scale, and each card judges a trend against its own history.</p>
+
+  <div class="inputs" id="inputs">
+    <input type="text" maxlength="80" aria-label="trend 1" placeholder="trend 1 (e.g. y2k fashion)"/>
+    <input type="text" maxlength="80" aria-label="trend 2" placeholder="trend 2 (e.g. streetwear)"/>
+    <input type="text" maxlength="80" aria-label="trend 3 (optional)" placeholder="trend 3 (optional)"/>
+    <input type="text" maxlength="80" aria-label="trend 4 (optional)" placeholder="trend 4 (optional)"/>
+  </div>
+  <button class="btn" id="go" onclick="runCompare()">compare</button>
+  <div class="msg err" id="err" role="alert"></div>
+  <div class="msg note" id="note" role="status"></div>
+
+  <section id="result" aria-live="polite">
+    <p class="headline" id="headline"></p>
+    <div class="panel">
+      <div class="toolbar">
+        <span class="lbl">relative search interest</span>
+        <button class="range active" onclick="setRange(52,this)">12m</button>
+        <button class="range" onclick="setRange(0,this)">5y</button>
+      </div>
+      <div class="chart-wrap"><canvas id="cmp-chart" aria-label="Comparison chart of search interest over time"></canvas></div>
+      <p class="how-to-read">how to read this: 100 = the highest weekly interest among all the terms shown. a line near 0 is not "dead", it is just small next to the others. one-off spikes are usually events, so check the verdict cards.</p>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+</main>
+
+<script src="{{ url_for('static', filename='js/shared.js') }}"></script>
+<script>
+const COLORS = ['#00BFA6', '#E8603C', '#1B3A8C', '#C2185B'];
+const DASHES = [[], [7, 4], [2, 3], [10, 3, 2, 3]];       // line style differs too, not just color
+let _cmp = null, _chart = null, _weeks = 52;
+const ALLOWED = /^[\p{L}\p{N}_ \-'&./]+$/u;
+
+// pre-fill from the report card's "compare with others" button
+(function init() {
+  const first = sessionStorage.getItem('compare_kw');
+  if (first) { sessionStorage.removeItem('compare_kw'); document.querySelector('#inputs input').value = first; }
+})();
+document.querySelectorAll('#inputs input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') runCompare(); }));
+
+function show(id, msg) { const e = document.getElementById(id); e.textContent = msg || ''; e.classList.toggle('visible', !!msg); }
+
+async function runCompare() {
+  show('err', ''); show('note', '');
+  const kws = [...document.querySelectorAll('#inputs input')].map(i => i.value.replace(/<[^>]*>/g, '').trim().replace(/\s+/g, ' ')).filter(Boolean);
+  if (kws.length < 2) return show('err', 'enter at least two trends.');
+  const bad = kws.find(k => k.length < 2 || k.length > 80 || !ALLOWED.test(k));
+  if (bad) return show('err', `"${bad}" has characters we can't search. use letters, numbers, spaces and - ' & . /`);
+  const btn = document.getElementById('go'); btn.disabled = true; btn.textContent = 'comparing…';
+  try {
+    const resp = await fetch('/api/compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keywords: kws }) });
+    const data = await resp.json();
+    if (!resp.ok) { document.getElementById('result').classList.remove('visible'); return show('err', data.error || 'something went wrong.'); }
+    _cmp = data; render();
+  } catch (e) {
+    show('err', 'could not reach the server. make sure app.py is running.');
+  } finally { btn.disabled = false; btn.textContent = 'compare'; }
+}
+
+function render() {
+  const d = _cmp;
+  document.getElementById('headline').textContent = d.headline;
+  if (d.stale) show('note', `live google data is unavailable, so this uses saved data from ${d.cached_at_pretty}.`);
+  drawChart();
+  document.getElementById('cards').innerHTML = d.items.map((it, i) => `
+    <div class="card">
+      <h2><span class="swatch" style="background:${COLORS[i]}"></span>${esc(it.keyword)}</h2>
+      <span class="badge ${esc(it.status)}">${esc(it.label_display)}</span>
+      <span class="conf">${esc(it.confidence)} confidence</span>
+      <p>${esc(it.reason)}</p>
+      <a href="#" onclick="openReport('${esc(it.keyword).replace(/'/g, '&#39;')}');return false;">full report →</a>
+    </div>`).join('');
+  document.getElementById('result').classList.add('visible');
+  document.getElementById('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function drawChart() {
+  const n = _cmp.labels.length, from = _weeks ? Math.max(0, n - _weeks) : 0;
+  if (_chart) _chart.destroy();
+  _chart = new Chart(document.getElementById('cmp-chart'), {
+    type: 'line',
+    data: {
+      labels: _cmp.labels.slice(from),
+      datasets: _cmp.keywords.map((k, i) => ({
+        label: k, data: _cmp.series[k].slice(from), borderColor: COLORS[i], borderDash: DASHES[i],
+        backgroundColor: COLORS[i], borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.2,
+      })),
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
+      animation: { duration: _reduceMotion ? 0 : 500 },
+      plugins: { legend: { labels: { font: { family: "'Space Mono', monospace", size: 11 }, color: '#666', usePointStyle: true } } },
+      scales: {
+        y: { min: 0, max: 100, grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#666', font: { size: 11 } } },
+        x: { grid: { display: false }, ticks: { color: '#666', maxTicksLimit: 8, maxRotation: 0, font: { size: 11 } } },
+      },
+    },
+  });
+}
+function setRange(weeks, btn) {
+  _weeks = weeks;
+  document.querySelectorAll('.range').forEach(b => b.classList.remove('active')); btn.classList.add('active');
+  if (_cmp) drawChart();
+}
+function openReport(kw) { sessionStorage.setItem('search_kw', kw); window.location.href = '/'; }
+function onThemeApplied() { if (_cmp) drawChart(); }
+</script>
+</body>
+</html>

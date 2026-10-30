@@ -11,6 +11,8 @@
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
       --cyan:#00BFA6;--cyan-dk:#009c87;
+      /* [new change] darker teal for buttons/text: white on #00BFA6 was only 2.33:1; these are 6.6:1+ */
+      --teal-btn:#00695C;--teal-btn-dk:#004D40;--teal-text:#00695C;
       --black:#000;--white:#fff;
       --muted:#666;--border:#ddd;--bg:#f7f7f7;
     }
@@ -327,6 +329,26 @@
 
     /* ── FOOTER ─────────────────────────────────────────────────────────────── */
     footer{padding:1.25rem 2.5rem;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:.58rem;color:var(--muted);letter-spacing:.06em;display:flex;justify-content:space-between}
+
+    /* ══ [new changes] — accessibility, verdict labels, notice, motion ══════════ */
+    html{font-size:112.5%}  /* [new] was 16px; most UI text was .55–.7rem (~9–11px) */
+    .nav-left .report-btn,.search-btn,.rc-compare-btn{background:var(--teal-btn);color:#fff}
+    .nav-left .report-btn:hover,.search-btn:hover,.rc-compare-btn:hover{background:var(--teal-btn-dk)}
+    .search-btn:disabled{background:var(--muted);cursor:not-allowed}
+    .hero-eyebrow,.hero-title em,.rc-title-kw,.rc-source-pub,.rc-explain em{color:var(--teal-text)}
+    .rc-disclaimer{color:var(--muted)}            /* was #bbb = 1.92:1 */
+    /* [new] new verdict labels (class names are the verdict ids from src/verdict.py) */
+    .rc-status-val.peaking{background:#fff3d6;color:#7a4b00}
+    .rc-status-val.steady,.rc-status-val.insufficient_data{background:#ebebeb;color:#444}
+    .rc-status-val.seasonal{background:#e6e9fb;color:#2a3a8c}
+    .rc-status-val.one_off_spike,.rc-status-val.spiking{background:#fdeacc;color:#8a3b00}
+    .rc-confidence{font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted);letter-spacing:.06em}
+    .rc-explain strong{font-weight:700}
+    /* [new] saved-data / warning notice */
+    .notice{display:none;margin:0 2.5rem 1rem;font-family:'Space Mono',monospace;font-size:.65rem;line-height:1.6;color:#5c4400;background:#fff8e1;border-left:3px solid #f0b429;padding:10px 14px}
+    .notice.visible{display:block}
+    /* [new] honour the OS "reduce motion" setting */
+    @media (prefers-reduced-motion: reduce){.ticker-track,.file,.fetch-spinner{animation:none!important} #results-section{transition:none}}
   </style>
 </head>
 <body>
@@ -360,8 +382,8 @@
 <!-- ══ TICKER ═══════════════════════════════════════════════════════════════ -->
 <div class="ticker-bar">
   <div class="ticker-track">
-    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>thread-sight v0.2</span>
-    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>pinterest</span><span><span class="ticker-dot">◆</span>real-time data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>thread-sight v0.2</span>
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>weekly search data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>thread-sight v0.2</span>
+    <span><span class="ticker-dot">◆</span>google trends</span><span><span class="ticker-dot">◆</span>newsapi</span><span><span class="ticker-dot">◆</span>weekly search data</span><span><span class="ticker-dot">◆</span>editorial analysis</span><span><span class="ticker-dot">◆</span>fashion intelligence</span><span><span class="ticker-dot">◆</span>thread-sight v0.2</span>
   </div>
 </div>
 
@@ -370,11 +392,10 @@
   <div class="hero-left">
     <p class="hero-eyebrow">where data meets fashion</p>
     <h1 class="hero-title">What's trending<br>right <em>now.</em></h1>
-    <p class="hero-desc">this python-based project tracks and analyzes fashion trend keywords by pulling live data across google trends, newsapi, and pinterest to show you what's rising, fading, or holding steady.</p>
+    <p class="hero-desc"><!-- [new changes] pinterest removed (not currently being used for data) -->this python-based project reads five years of google search interest and recent news coverage to tell you whether a trend is rising, peaking, fading, seasonal, or just a one-week spike.</p>
     <div class="sources-row">
       <span class="source-pill active">google trends</span>
       <span class="source-pill active">newsapi</span>
-      <span class="source-pill active">pinterest</span>
     </div>
     <div class="search-wrap">
       <input class="search-input" id="keyword-input" type="text" placeholder="enter a trend or keyword (e.g. quiet luxury).." maxlength="80"/>
@@ -385,13 +406,13 @@
   </div>
 
   <div class="hero-right">
-    <p class="panel-label">now trending</p>
+    <p class="panel-label">try a trend</p><!-- [new] was "now trending" over hardcoded labels -->
     <div class="slideshow" id="slideshow" onclick="analyzeFromSlide()">
-      <div class="slide slide-1 active"><div class="slide-overlay"><span class="slide-trend-word">quiet luxury</span><span class="slide-trend-tag">↑ rising · ss 2025</span></div><div class="slide-caption">terracotta · earthy minimalism</div></div>
-      <div class="slide slide-2"><div class="slide-overlay"><span class="slide-trend-word">gorpcore</span><span class="slide-trend-tag">↑ rising · aw 2025</span></div><div class="slide-caption">cobalt · outdoor utility</div></div>
-      <div class="slide slide-3"><div class="slide-overlay"><span class="slide-trend-word">coastal prep</span><span class="slide-trend-tag">→ stable · resort 2025</span></div><div class="slide-caption">sage · relaxed coastal</div></div>
-      <div class="slide slide-4"><div class="slide-overlay"><span class="slide-trend-word">coquette</span><span class="slide-trend-tag">↓ fading · ss 2024</span></div><div class="slide-caption">blush · feminine softness</div></div>
-      <div class="slide slide-5"><div class="slide-overlay"><span class="slide-trend-word">y2k revival</span><span class="slide-trend-tag">→ stable · aw 2025</span></div><div class="slide-caption">cyan · digital nostalgia</div></div>
+      <div class="slide slide-1 active"><div class="slide-overlay"><span class="slide-trend-word">quiet luxury</span><span class="slide-trend-tag">tap to analyze →</span></div><div class="slide-caption">terracotta · earthy minimalism</div></div>
+      <div class="slide slide-2"><div class="slide-overlay"><span class="slide-trend-word">gorpcore</span><span class="slide-trend-tag">tap to analyze →</span></div><div class="slide-caption">cobalt · outdoor utility</div></div>
+      <div class="slide slide-3"><div class="slide-overlay"><span class="slide-trend-word">coastal prep</span><span class="slide-trend-tag">tap to analyze →</span></div><div class="slide-caption">sage · relaxed coastal</div></div>
+      <div class="slide slide-4"><div class="slide-overlay"><span class="slide-trend-word">coquette</span><span class="slide-trend-tag">tap to analyze →</span></div><div class="slide-caption">blush · feminine softness</div></div>
+      <div class="slide slide-5"><div class="slide-overlay"><span class="slide-trend-word">y2k revival</span><span class="slide-trend-tag">tap to analyze →</span></div><div class="slide-caption">cyan · digital nostalgia</div></div>
     </div>
     <div class="slide-dots" id="slide-dots">
       <button class="slide-dot active" onclick="event.stopPropagation();goToSlide(0)"></button>
@@ -403,7 +424,7 @@
     <div class="chart-container" id="chart-container"><img class="chart-img" id="chart-img" alt="trend chart"/></div>
     <div id="panel-stats" style="display:none;flex-direction:column;gap:.75rem;">
       <div class="stat-mini"><span class="stat-mini-label">searched</span><span class="stat-mini-val" id="panel-keyword" style="font-size:1rem">—</span></div>
-      <div class="stat-mini"><span class="stat-mini-label">peak score</span><span class="stat-mini-val cyan" id="panel-score">—</span></div>
+      <div class="stat-mini"><span class="stat-mini-label">peak (past year)</span><span class="stat-mini-val cyan" id="panel-score">—</span></div>
       <div class="stat-mini"><span class="stat-mini-label">status</span><span class="stat-mini-val" id="panel-status" style="font-size:.9rem;font-family:'Space Mono',monospace">—</span></div>
     </div>
   </div>
@@ -417,6 +438,8 @@
 
 <!-- ══ ERROR ════════════════════════════════════════════════════════════════ -->
 <div class="error-msg" id="error-msg"><div class="error-inner" id="error-text"></div></div>
+<!-- [new] shows "saved data" + warnings instead of silently pretending -->
+<div class="notice" id="stale-notice" role="status"></div>
 
 <!-- ══ REPORT CARD ══════════════════════════════════════════════════════════ -->
 <section id="results-section">
@@ -433,8 +456,10 @@
   <div class="rc-chart-panel" id="rc-chart-panel">
     <div class="rc-chart-toolbar">
       <span class="rc-chart-label">interest over time</span>
-      <button class="rc-chart-range-btn" onclick="setChartRange(3)">3m</button>
-      <button class="rc-chart-range-btn active" onclick="setChartRange(12)">12m</button>
+      <!-- [new] buttons now pass `this` so the active highlight works; 5y added -->
+      <button class="rc-chart-range-btn" onclick="setChartRange(3,this)">3m</button>
+      <button class="rc-chart-range-btn active" onclick="setChartRange(12,this)">12m</button>
+      <button class="rc-chart-range-btn" onclick="setChartRange(60,this)">5y</button>
       <button class="rc-chart-expand-btn" onclick="openChartModal()">expand ↗</button>
     </div>
     <div class="rc-chart-wrap">
@@ -450,7 +475,7 @@
       <div><p class="rc-section-label">sources: linked</p><div class="rc-sources-list" id="rc-sources-list"><p style="font-family:'Space Mono',monospace;font-size:.62rem;color:var(--muted)">no sources yet.</p></div></div>
     </div>
     <div class="rc-right">
-      <div class="rc-status-row"><span class="rc-status-label">STATUS:</span><span class="rc-status-val" id="rc-status-val">—</span></div>
+      <div class="rc-status-row"><span class="rc-status-label">STATUS:</span><span class="rc-status-val" id="rc-status-val">—</span><span class="rc-confidence" id="rc-confidence"></span></div><!-- CHANGED [#3] confidence -->
       <p class="rc-explain" id="rc-explain">—</p>
 
       <button class="rc-collage-btn" onclick="openCollage()" aria-label="view trend look book">
@@ -465,8 +490,9 @@
       </button>
 
       <div>
-        <p class="rc-projected" id="rc-projected">projected: —</p>
-        <p class="rc-disclaimer">* data-based estimate · not a guarantee</p>
+        <!-- [new] the 8-week "projection" contradicted the verdict, so it is gone; this shows the numbers behind the verdict -->
+        <p class="rc-projected" id="rc-detail">—</p>
+        <p class="rc-disclaimer">* weekly google search interest · describes the past, it is not a forecast</p>
       </div>
       <!-- COMPARE BUTTON — passes keyword to /compare via sessionStorage -->
       <button class="rc-compare-btn" id="rc-compare-btn" onclick="goToCompare()">compare with others</button>
@@ -527,8 +553,8 @@
 
     <p class="ts-modal-label">tech stack used:</p>
     <p class="ts-modal-plain" style="margin-bottom:1.25rem">
-      <strong>backend:</strong> <span class="ts-modal-accent">python · flask · pytrends · matplotlib</span><br>
-      <strong>data sources:</strong> <span class="ts-modal-accent">google trends · newsapi · pinterest</span><br>
+      <strong>backend:</strong> <span class="ts-modal-accent">python · flask · pytrends · matplotlib · chart.js</span><br>
+      <strong>data sources:</strong> <span class="ts-modal-accent">google trends · newsapi · unsplash</span><br>
       <strong>frontend:</strong> <span class="ts-modal-accent">vanilla html · css · javascript</span>
     </p>
 
@@ -606,10 +632,12 @@
 
 <footer>
   <span>thread-sight v0.2 — phase 2 in progress</span>
-  <span>powered by google trends · newsapi · pinterest</span>
+  <span>powered by google trends · newsapi · unsplash</span>
 </footer>
 
 
+<!-- [new] shared code now lives in static/js/shared.js (loaded BEFORE the page script) -->
+<script src="{{ url_for('static', filename='js/shared.js') }}"></script>
 <script>
 // ═══════════════════════════════════════════════════════════════════════════════
 //  thread-sight — index.js
@@ -621,30 +649,20 @@ let _modalChartInstance= null;
 let _chartData         = null;   // { labels[], values[], slope, projected_value }
 let _chartKw           = '';
 let _chartRange        = 12;
-let _reduceMotion      = false;
+/* [new] _reduceMotion is declared in shared.js */
 
 // ── PAGE LOAD ────────────────────────────────────────────────────────────────
+// [new] the 5-second wait is gone (overlay timing is in shared.js); auto-search starts almost immediately
 window.addEventListener('load', () => {
-  setTimeout(() => {
-    const ov = document.getElementById('loading-overlay');
-    ov.classList.add('hidden');
-    setTimeout(() => { ov.style.display = 'none'; }, 650);
-  }, 5000);
   const stored = sessionStorage.getItem('search_kw');
   if (stored) {
     sessionStorage.removeItem('search_kw');
     document.getElementById('keyword-input').value = stored;
-    setTimeout(() => analyzeTrend(), 5200);
+    setTimeout(() => analyzeTrend(), 300);
   }
-  loadSavedPrefs();
 });
 
-// ── LIVE CLOCK ───────────────────────────────────────────────────────────────
-function updateClock() {
-  document.getElementById('live-datetime').textContent =
-    new Date().toLocaleString('en-US',{weekday:'short',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}).toLowerCase();
-}
-updateClock(); setInterval(updateClock, 60000);
+// [new] live clock moved to static/js/shared.js
 
 // ── SLIDESHOW ────────────────────────────────────────────────────────────────
 const SLIDE_KWS = ['quiet luxury','gorpcore','coastal prep','coquette','y2k revival'];
@@ -670,14 +688,15 @@ function switchToChart() {
 startSlideshow();
 
 // ── INPUT VALIDATION ─────────────────────────────────────────────────────────
-const ALLOWED = /^[a-zA-Z0-9 \-'&]+$/;
+// [new] accents, other alphabets, "." and "/" are now allowed (matches src/app.py)
+const ALLOWED = /^[\p{L}\p{N}_ \-'&./]+$/u;
 function sanitize(s) { return s.replace(/<[^>]*>/g,'').trim().replace(/\s+/g,' '); }
 function validate(raw) {
   const c = sanitize(raw);
   if (!c)           return { ok:false, msg:'please enter a keyword.' };
   if (c.length < 2) return { ok:false, msg:'keyword too short (min 2 chars).' };
   if (c.length > 80)return { ok:false, msg:'keyword too long (max 80 chars).' };
-  if (!ALLOWED.test(c)) return { ok:false, msg:'only letters, numbers, spaces, and hyphens allowed.' };
+  if (!ALLOWED.test(c)) return { ok:false, msg:"only letters, numbers, spaces, and - ' & . / are allowed." };
   return { ok:true, value:c };
 }
 function showInputErr(msg) { const e=document.getElementById('input-error'); e.textContent=msg; e.classList.add('visible'); document.getElementById('keyword-input').classList.add('invalid'); }
@@ -728,62 +747,67 @@ function goToCompare() {
 
 // ── DISPLAY RESULTS ──────────────────────────────────────────────────────────
 function displayResults(data) {
+  // [new] rebuilt around the server's verdict. no more local "stable" default, no
+  // "x% more people" wording, no projection. everything shown comes from data.* fields.
   switchToChart();
-  const kw     = data.keyword       || '—';
-  const status = data.status        || 'stable';
-  const peak   = data.peak_interest ?? 0;
-  const growth = data.growth        ?? 0;
+  const kw     = data.keyword || '—';
+  const status = data.status  || 'insufficient_data';
+  const pretty = data.label_display || status.replace(/_/g, ' ');
+  const d      = data.detail  || {};
+  const signed = n => (n > 0 ? '+' : '') + n;
 
   // hero panel mini stats
   if (data.chart) document.getElementById('chart-img').src = 'data:image/png;base64,' + data.chart;
   document.getElementById('panel-keyword').textContent = kw;
-  document.getElementById('panel-score').textContent   = peak;
-  document.getElementById('panel-status').textContent  = status;
+  document.getElementById('panel-score').textContent   = d.peak_52w != null ? d.peak_52w : '—';
+  document.getElementById('panel-status').textContent  = pretty;
+  document.getElementById('rc-kw-title').textContent   = kw.toUpperCase();
 
-  document.getElementById('rc-kw-title').textContent = kw.toUpperCase();
+  // [new] saved-data + warning notice
+  const msgs = [];
+  if (data.stale) msgs.push(data.data_source === 'demo'
+    ? `showing a saved sample from ${esc(data.cached_at_pretty)}. live google data isn't available right now.`
+    : `live google data isn't available right now, so this is saved data from ${esc(data.cached_at_pretty)}.`);
+  (data.warnings || []).forEach(w => msgs.push(esc(w)));
+  const notice = document.getElementById('stale-notice');
+  notice.innerHTML = msgs.join('<br>');
+  notice.classList.toggle('visible', msgs.length > 0);
 
-  // ── Interactive Chart ────────────────────────────────────────────────────
+  // interactive chart (5 years of weekly data; the buttons choose how much to show)
   if (data.chart_data && data.chart_data.labels && data.chart_data.labels.length) {
-    _chartData = data.chart_data;
-    _chartKw   = kw;
-    _chartRange = 12;
-    document.querySelectorAll('.rc-chart-range-btn').forEach((b,i) => b.classList.toggle('active', i===1));
+    _chartData = data.chart_data; _chartKw = kw; _chartRange = 12;
+    document.querySelectorAll('.rc-chart-range-btn').forEach((b, i) => b.classList.toggle('active', i === 1));
     renderChart(kw, status);
   } else if (data.chart) {
-    // fallback: show the server-rendered png in an <img> inside the canvas wrapper
     const wrap = document.querySelector('.rc-chart-wrap');
     wrap.innerHTML = `<img src="data:image/png;base64,${data.chart}" style="width:100%;height:100%;object-fit:contain" alt="trend chart"/>`;
   }
 
-  // status badge
+  // verdict + plain-language reason (written by src/verdict.py, so the page can't misstate it)
   const sv = document.getElementById('rc-status-val');
-  sv.textContent = status; sv.className = 'rc-status-val ' + status;
+  sv.textContent = pretty; sv.className = 'rc-status-val ' + status;
+  document.getElementById('rc-confidence').textContent = data.confidence ? data.confidence + ' confidence' : '';
+  document.getElementById('rc-explain').innerHTML = `<strong>${esc(data.headline || '')}</strong><br>${esc(data.reason || '')}`;
 
-  // explanation
-  const pct = Math.abs(growth);
-  let ex = '';
-  if (status === 'rising')
-    ex = `this means <em>${esc(kw)}</em> is making waves and has peaked the interest of <em>${pct}%</em> more people this year than before. maybe <em>${esc(kw)}</em> is in for the season!`;
-  else if (status === 'fading')
-    ex = `this means <em>${esc(kw)}</em> is starting to fall off and lose the popularity it once had. <em>${pct}%</em> fewer people have interest in <em>${esc(kw)}</em> than 6 months ago. perhaps <em>${esc(kw)}</em> is sunsetting for this season.`;
-  else
-    ex = `this means <em>${esc(kw)}</em> is very consistent and in its calm era for now. <em>${peak}</em>/100 people still like this trend, similar to interest 6 months ago. seems like <em>${esc(kw)}</em> is doing well.`;
-  document.getElementById('rc-explain').innerHTML = ex;
+  const bits = [];
+  if (d.recent   != null) bits.push(`last 4 weeks: <strong>${d.recent}</strong>/100`);
+  if (d.baseline != null) bits.push(`prior 6 months: <strong>${d.baseline}</strong>/100`);
+  if (d.change_pct != null) bits.push(`change: <strong>${signed(d.change_pct)}%</strong>`);
+  if (d.yoy_pct    != null) bits.push(`vs. same weeks last year: <strong>${signed(d.yoy_pct)}%</strong>`);
+  document.getElementById('rc-detail').innerHTML = bits.join(' · ') || 'not enough data for a comparison.';
 
   document.getElementById('rc-history').textContent = buildHistory(kw);
 
-  const news = (data.news || []).filter(n => n.title && !n.title.startsWith('add NEWS'));
-  document.getElementById('rc-media-num').textContent = news.length;
+  // [#4] real 30-day article count (data.news_total), not the 6 articles we happened to fetch
+  const news = data.news || [];
+  document.getElementById('rc-media-num').textContent = data.news_total != null ? data.news_total.toLocaleString() : '—';
   const sl = document.getElementById('rc-sources-list');
   sl.innerHTML = news.length === 0
-    ? '<p style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:var(--muted)">no articles found — add NewsAPI key to .env</p>'
-    : news.slice(0,5).map(n =>
-        `<a class="rc-source-link" href="${esc(n.url||'#')}" target="_blank" rel="noopener noreferrer">
-          <span class="rc-source-pub">${esc(n.source)} · ${esc(n.published_at||'')}</span>${esc(n.title)}
+    ? '<p style="font-family:\'Space Mono\',monospace;font-size:.62rem;color:var(--muted)">no articles to show.</p>'
+    : news.slice(0, 5).map(n =>
+        `<a class="rc-source-link" href="${esc(/^https?:\/\//i.test(n.url || '') ? n.url : '#')}" target="_blank" rel="noopener noreferrer">
+          <span class="rc-source-pub">${esc(n.source)} · ${esc(n.published_at || '')}</span>${esc(n.title)}
         </a>`).join('');
-
-  document.getElementById('rc-projected').innerHTML =
-    '<strong>projected:</strong> ' + (data.projected_label || 'data unavailable');
 
   buildLookbook(kw);
   document.getElementById('collage-title').textContent = kw;
@@ -791,7 +815,7 @@ function displayResults(data) {
   const rs = document.getElementById('results-section');
   rs.style.display = 'block';
   requestAnimationFrame(() => rs.classList.add('visible'));
-  rs.scrollIntoView({ behavior:'smooth', block:'start' });
+  rs.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ── INTERACTIVE CHART.JS ──────────────────────────────────────────────────────
@@ -891,32 +915,27 @@ function buildChartConfig(labels, values, kw, status, expanded) {
 }
 
 function renderChart(kw, status) {
+  // [new] the server now sends 5 years of weekly points; 3m = 13 wks, 12m = 52 wks, 5y = all
   if (!_chartData) return;
   const n = _chartData.labels.length;
-  const cutoff = _chartRange === 3 ? Math.max(0, n - 13) : 0;
+  const weeks = _chartRange === 3 ? 13 : _chartRange === 12 ? 52 : n;
+  const cutoff = Math.max(0, n - weeks);
   const labels = _chartData.labels.slice(cutoff);
   const values = _chartData.values.slice(cutoff);
 
   const canvas = document.getElementById('rc-chart-canvas');
   if (!canvas) return;
   if (_chartInstance) { _chartInstance.destroy(); _chartInstance = null; }
-  _chartInstance = new Chart(canvas, buildChartConfig(labels, values, kw, status || 'stable', false));
+  _chartInstance = new Chart(canvas, buildChartConfig(labels, values, kw, status || 'steady', false));
 
-  // stats strip
-  const avg   = (values.reduce((a,b)=>a+b,0)/values.length).toFixed(0);
-  const mx    = Math.max(...values);
-  const mn    = Math.min(...values);
-  const slope = _chartData.slope;
-  const slopeClass = slope > 0.3 ? 'rising' : slope < -0.3 ? 'fading' : '';
-  const slopeTxt   = slope > 0.3 ? '↑ trending up' : slope < -0.3 ? '↓ trending down' : '→ holding steady';
+  const avg = (values.reduce((a, b) => a + b, 0) / values.length).toFixed(0);
   const statsEl = document.getElementById('rc-chart-stats');
   if (statsEl) statsEl.innerHTML = `
     <span class="rc-chart-stat">avg: <strong>${avg}/100</strong></span>
-    <span class="rc-chart-stat">peak: <strong>${mx}/100</strong></span>
-    <span class="rc-chart-stat">low: <strong>${mn}/100</strong></span>
-    <span class="rc-chart-stat ${slopeClass}">momentum: <strong>${slopeTxt}</strong></span>
-    <span class="rc-chart-stat">4-week projection: <strong>~${_chartData.projected_value}/100</strong></span>
-  `;
+    <span class="rc-chart-stat">peak: <strong>${Math.max(...values)}/100</strong></span>
+    <span class="rc-chart-stat">low: <strong>${Math.min(...values)}/100</strong></span>
+    <span class="rc-chart-stat">latest full week: <strong>${values[values.length - 1]}/100</strong></span>
+    <span class="rc-chart-stat">0–100 = relative search interest, 100 = this term's busiest week</span>`;
 }
 
 function setChartRange(months, btn) {
@@ -966,200 +985,35 @@ function getQueries(kw) {
   return [`${kw.replace(/ /g,'+')}+fashion+outfit`, `${kw.replace(/ /g,'+')}+style`, `${kw.replace(/ /g,'+')}+aesthetic`, `fashion+trend`, `outfit+style`];
 }
 
-function buildLookbook(kw) {
-  const queries = getQueries(kw);
+async function buildLookbook(kw) {
+  // [new] source.unsplash.com no longer serves images. Photos now come from /api/lookbook (Unsplash API,
+  // key stays on the server). Without a key you simply keep the palette gradients.
   const palette = getPalette(kw);
+  const setBg = (id, url) => { const el = document.getElementById(id); if (el) { el.style.backgroundImage = `url('${url}')`; el.style.backgroundSize = 'cover'; el.style.backgroundPosition = 'center'; } };
+  for (let i = 0; i < 5; i++) { const el = document.getElementById('cf' + i); if (el) el.style.backgroundImage = `linear-gradient(135deg, ${palette[i % palette.length]}, ${palette[(i + 2) % palette.length]})`; }
+  for (let i = 0; i < 8; i++) { const el = document.getElementById('cp' + i); if (el) el.style.backgroundImage = `linear-gradient(135deg, ${palette[i % palette.length]}, ${palette[(i + 1) % palette.length]})`; }
 
-  // Use Unsplash with a timestamp salt to bypass any caching/rate issues
-  // Each image gets a different query and unique random seed
-  const salt = Math.floor(Math.random() * 10000);
-
-  for (let i = 0; i < 5; i++) {
-    const q = queries[i % queries.length];
-    const el = document.getElementById('cf' + i);
-    if (!el) continue;
-    // Reset first so user sees a loading state rather than stale image
-    el.style.backgroundImage = `linear-gradient(135deg, ${palette[i % palette.length]}, ${palette[(i+2) % palette.length]})`;
-
-    const url = `https://source.unsplash.com/300x400/?${q}&sig=${salt + i}`;
-    const img = new Image();
-    img.onload = () => {
-      el.style.backgroundImage = `url('${img.src}')`;
-      el.style.backgroundSize  = 'cover';
-      el.style.backgroundPosition = 'center';
-    };
-    img.onerror = () => {
-      // Keep the gradient fallback — already set above
-    };
-    img.src = url;
-  }
-
-  for (let i = 0; i < 8; i++) {
-    const q = queries[i % queries.length];
-    const ph = document.getElementById('cp' + i);
-    if (!ph) continue;
-    ph.style.background = `linear-gradient(135deg, ${palette[i % palette.length]}, ${palette[(i+1) % palette.length]})`;
-
-    const url = `https://source.unsplash.com/400x600/?${q}&sig=${salt + i + 20}`;
-    const img2 = new Image();
-    img2.onload = () => {
-      ph.style.backgroundImage = `url('${img2.src}')`;
-      ph.style.backgroundSize  = 'cover';
-      ph.style.backgroundPosition = 'center';
-    };
-    img2.src = url;
-  }
-
-  // palette chips
   const pp = document.getElementById('palette-panel');
   if (pp) pp.innerHTML = palette.map(hex =>
-    `<div class="palette-chip" style="background:${hex}" data-hex="${hex}" title="${hex}"></div>`
-  ).join('');
+    `<div class="palette-chip" style="background:${hex}" data-hex="${hex}" title="${hex}"></div>`).join('');
   const cap = document.getElementById('collage-caption');
-  if (cap) cap.textContent = `scroll → · "${kw}" look book · images via unsplash`;
+  if (cap) cap.textContent = `scroll → · "${kw}" look book`;
+
+  try {
+    const resp = await fetch('/api/lookbook?q=' + encodeURIComponent(kw));
+    const data = await resp.json();
+    const photos = data.photos || [];
+    photos.forEach((p, i) => { if (i < 5) setBg('cf' + i, p.thumb); if (i < 8) setBg('cp' + i, p.url); });
+    if (cap && photos.length) cap.textContent = `scroll → · "${kw}" look book · photos by ${[...new Set(photos.map(p => p.credit))].slice(0, 3).join(', ')} on unsplash`;
+    else if (cap && data.reason === 'no_key') cap.textContent = `scroll → · "${kw}" palette · add UNSPLASH_ACCESS_KEY to .env for photos`;
+  } catch (e) { /* keep the gradients */ }
 }
 
 function openCollage()  { document.getElementById('collage-modal').classList.add('open');    document.body.style.overflow = 'hidden'; }
 function closeCollage() { document.getElementById('collage-modal').classList.remove('open'); document.body.style.overflow = ''; }
 
-// ── LEARN MORE MODAL ──────────────────────────────────────────────────────────
-function openLearnMore() {
-  document.getElementById('learn-modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeLearnMore(e) {
-  if (e && e.target !== document.getElementById('learn-modal-overlay')) return;
-  document.getElementById('learn-modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-// ── SETTINGS MODAL ────────────────────────────────────────────────────────────
-function openSettings() {
-  document.getElementById('settings-modal-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-function closeSettings(e) {
-  if (e && e.target !== document.getElementById('settings-modal-overlay')) return;
-  document.getElementById('settings-modal-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-// ── SETTINGS: THEME ───────────────────────────────────────────────────────────
-function setTheme(t) {
-  localStorage.setItem('ts_theme', t);
-  document.getElementById('theme-light').classList.toggle('active', t === 'light');
-  document.getElementById('theme-dark').classList.toggle('active', t === 'dark');
-  applyTheme(t);
-}
-
-function applyTheme(t) {
-  if (t === 'dark') {
-    document.documentElement.style.setProperty('--white',   '#0f0f0f');
-    document.documentElement.style.setProperty('--black',   '#f0f0f0');
-    document.documentElement.style.setProperty('--bg',      '#1a1a1a');
-    document.documentElement.style.setProperty('--border',  '#333');
-    document.documentElement.style.setProperty('--muted',   '#888');
-    document.body.style.background = '#0f0f0f';
-    document.body.style.color      = '#f0f0f0';
-  } else {
-    document.documentElement.style.setProperty('--white',   '#fff');
-    document.documentElement.style.setProperty('--black',   '#000');
-    document.documentElement.style.setProperty('--bg',      '#f7f7f7');
-    document.documentElement.style.setProperty('--border',  '#ddd');
-    document.documentElement.style.setProperty('--muted',   '#666');
-    document.body.style.background = '#fff';
-    document.body.style.color      = '#000';
-  }
-  // Re-render chart with updated colors if data is loaded
-  if (_chartInstance && _chartData) {
-    const status = document.getElementById('rc-status-val')?.textContent?.toLowerCase() || 'stable';
-    renderChart(_chartKw, status);
-  }
-}
-
-// ── SETTINGS: LANGUAGE ────────────────────────────────────────────────────────
-function setLanguage(lang) {
-  localStorage.setItem('ts_lang', lang);
-  if (lang === 'en') {
-    const el = document.getElementById('google-translate-el');
-    if (el) el.remove();
-    return;
-  }
-  if (!document.getElementById('google-translate-el')) {
-    const div = document.createElement('div');
-    div.id = 'google-translate-el';
-    div.style.display = 'none';
-    document.body.appendChild(div);
-  }
-  if (!document.getElementById('gt-script')) {
-    window.gtInit = function() {
-      new google.translate.TranslateElement(
-        { pageLanguage:'en', includedLanguages: lang, autoDisplay: true },
-        'google-translate-el'
-      );
-    };
-    const s = document.createElement('script');
-    s.id = 'gt-script';
-    s.src = '//translate.google.com/translate_a/element.js?cb=gtInit';
-    document.head.appendChild(s);
-  }
-}
-
-// ── SETTINGS: REDUCE MOTION ───────────────────────────────────────────────────
-function toggleReduceMotion() {
-  _reduceMotion = !_reduceMotion;
-  localStorage.setItem('ts_reduce_motion', _reduceMotion);
-  document.getElementById('reduce-motion-btn').classList.toggle('active', _reduceMotion);
-  applyReduceMotion(_reduceMotion);
-}
-function applyReduceMotion(on) {
-  const style = on ? 'animation-duration:0s!important;transition:none!important' : '';
-  let tag = document.getElementById('ts-reduce-motion-style');
-  if (!tag) { tag = document.createElement('style'); tag.id = 'ts-reduce-motion-style'; document.head.appendChild(tag); }
-  tag.textContent = on ? '*, *::before, *::after { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }' : '';
-}
-
-// ── SETTINGS: FONT SIZE ───────────────────────────────────────────────────────
-function setFontSize(val) {
-  document.documentElement.style.fontSize = val + '%';
-  const el = document.getElementById('font-size-val');
-  if (el) el.textContent = val + '%';
-  localStorage.setItem('ts_font_size', val);
-}
-
-// ── LOAD SAVED PREFS (runs on every page load) ────────────────────────────────
-function loadSavedPrefs() {
-  // Theme
-  const theme = localStorage.getItem('ts_theme') || 'light';
-  const tl = document.getElementById('theme-light');
-  const td = document.getElementById('theme-dark');
-  if (tl) tl.classList.toggle('active', theme === 'light');
-  if (td) td.classList.toggle('active', theme === 'dark');
-  applyTheme(theme);
-
-  // Font size
-  const fs = localStorage.getItem('ts_font_size');
-  if (fs) {
-    const rng = document.getElementById('font-size-range');
-    if (rng) rng.value = fs;
-    setFontSize(fs);
-  }
-
-  // Reduce motion
-  const rm = localStorage.getItem('ts_reduce_motion') === 'true';
-  _reduceMotion = rm;
-  const rmBtn = document.getElementById('reduce-motion-btn');
-  if (rmBtn) rmBtn.classList.toggle('active', rm);
-  if (rm) applyReduceMotion(true);
-
-  // Language
-  const lang = localStorage.getItem('ts_lang');
-  if (lang) {
-    const sel = document.getElementById('lang-select');
-    if (sel) sel.value = lang;
-    if (lang !== 'en') setLanguage(lang);
-  }
-}
+// [new] learn-more modal, settings modal, theme, language, reduce-motion, text size and saved
+// preferences moved to static/js/shared.js (they were duplicated in today.html).
 
 // ── HISTORY BLURBS ───────────────────────────────────────────────────────────
 const HISTORY = {
@@ -1179,7 +1033,7 @@ function buildHistory(kw) {
   for (const [k,v] of Object.entries(HISTORY)) {
     if (kl.includes(k) || k.includes(kl)) return v;
   }
-  return `"${kw}" is a fashion keyword tracked across google trends, newsapi, and pinterest. search interest reflects real-time cultural momentum in apparel, styling, and editorial coverage.`;
+  return `"${kw}" is a fashion keyword tracked with google search interest and recent news coverage.`;
 }
 
 // ── COLOUR PALETTES ──────────────────────────────────────────────────────────
@@ -1203,19 +1057,13 @@ function getPalette(kw) {
   return ['#00BFA6','#009c87','#007A6B','#004d42','#00e5cc','#002e29'];
 }
 
-// ── KEYBOARD ESC ──────────────────────────────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    closeCollage(); closeChartModal();
-    document.getElementById('learn-modal-overlay')?.classList.remove('open');
-    document.getElementById('settings-modal-overlay')?.classList.remove('open');
-    document.body.style.overflow = '';
+// ── PAGE HOOKS FOR shared.js ──────────────────────────────────────────────────
+// [new] Escape-for-modals and esc() live in shared.js; only the page-specific bits stay here.
+function onEscape() { closeCollage(); closeChartModal(); }
+function onThemeApplied() {
+  if (_chartInstance && _chartData) {
+    renderChart(_chartKw, document.getElementById('rc-status-val')?.textContent?.toLowerCase() || 'steady');
   }
-});
-
-// ── HTML ESCAPE ───────────────────────────────────────────────────────────────
-function esc(s) {
-  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -1229,7 +1077,7 @@ function hideResults() {
   rs.classList.remove('visible'); rs.style.display = 'none';
   _chartData = null;
 }
-function hideError()    { document.getElementById('error-msg')?.classList.remove('visible'); }
+function hideError()    { document.getElementById('error-msg')?.classList.remove('visible'); document.getElementById('stale-notice')?.classList.remove('visible'); /* CHANGED [#1] */ }
 function showError(msg) { const e=document.getElementById('error-text'); if(e) e.textContent=msg; document.getElementById('error-msg')?.classList.add('visible'); }
 </script>
 </body>

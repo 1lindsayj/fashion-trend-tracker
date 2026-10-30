@@ -3,6 +3,10 @@
 # SECRET FILES — never commit these
 .env
 
+#added 10/30
+.venv/
+venv/
+
 # Python
 __pycache__/
 *.pyc
@@ -13,6 +17,11 @@ __pycache__/
 dist/
 build/
 .eggs/
+
+#added 10/30
+.pytest_cache/
+
+cache/
 
 # virtual environments
 venv/
